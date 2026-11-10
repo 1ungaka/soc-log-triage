@@ -6,8 +6,8 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 
 | ID | Rule | Severity | ATT&CK | Data sources |
 |---|---|---|---|---|
-| AUTH-001 | Brute force against account(s) | medium | T1110.001 | sshd `Failed password`, auditd `USER_AUTH`, Windows 4625 |
-| AUTH-002 | Password spraying from single source | high | T1110.003 | sshd `Failed password`, auditd `USER_AUTH`, Windows 4625 |
+| AUTH-001 | Brute force against account(s) | medium | T1110.001 | sshd `Failed password`, auditd `USER_AUTH`, Windows 4625, DC 4771 (0x18) |
+| AUTH-002 | Password spraying from single source | high | T1110.003 | sshd `Failed password`, auditd `USER_AUTH`, Windows 4625, DC 4771 (0x18) |
 | AUTH-003 | Successful login after repeated failures | high / critical | T1110, T1078 | failures + sshd `Accepted`, auditd `USER_LOGIN`, Windows 4624 |
 | ACCT-001 | Local account created | medium | T1136.001 | `useradd`, auditd `ADD_USER`, Windows 4720 |
 | ACCT-002 | Account added to privileged group | high | T1098 | `usermod`/`gpasswd`, auditd `USER_MGMT`, Windows 4728/4732/4756 |
@@ -16,11 +16,15 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 | EXEC-002 | Office application spawned a shell or script host | high | T1204.002, T1566.001 | Windows 4688, Sysmon 1 |
 | NET-001 | Script host connected to external address | medium | T1105, T1071.001 | Sysmon 3 |
 | FILE-001 | Executable or script written by Office or a script host | medium / high | T1105, T1204.002 | Sysmon 11 |
+| KERB-001 | Possible Kerberoasting | high | T1558.003 | DC 4769 |
+| KERB-002 | Kerberos TGT issued without pre-authentication | medium / high | T1558.004 | DC 4768 |
 | EVADE-001 | Security event log cleared | high | T1685.005 | Windows 1102 |
 
 ## Logic and tuning
 
-**AUTH-001 / AUTH-002.** Failures are grouped per source IP into bursts (a new burst starts after a gap longer than the window). A burst alerts when at least `--bf-count` failures (default 10) fall inside any `--bf-window` minute window (default 5). If the burst hits `--spray-users` distinct usernames (default 5) it is reported as spraying instead, because many accounts with a few guesses each is designed to stay under per-account lockout.
+**AUTH-001 / AUTH-002.** Failures are grouped per source IP into bursts (a new burst starts after a gap longer than the window). A burst alerts when at least `--bf-count` failures (default 10) fall inside any `--bf-window` minute window (default 5). Spraying is judged separately on **distinct accounts**: if at least `--spray-users` usernames (default 5) are tried inside one window it is AUTH-002, however few attempts there were. A careful sprayer makes one guess per account to stay under lockout, so a volume threshold alone misses them (this was a real gap, found while adding Kerberos, and is now covered by a regression test).
+
+Kerberos pre-authentication failures with status `0x18` (wrong password, event 4771) count as auth failures, so spraying against a domain controller is caught even though it never writes a 4625.
 
 *False positives:* a misconfigured service retrying an old password; vulnerability scanners. *Gaps:* slow, distributed attacks from many IPs (low and slow) will not reach the per-IP threshold.
 
@@ -48,5 +52,13 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 *False positives:* admin scripts that call public APIs or package feeds. *Gaps:* malware that injects into a browser or other allowed process will not be seen by image name.
 
 **FILE-001.** Sysmon 11 shows an Office app or script host writing a file with an executable or script extension (`.exe`, `.dll`, `.ps1`, `.vbs`, `.js`, `.hta`, `.bat`, `.msi` and others). High when the writer is Office, because documents dropping scripts is almost never legitimate; medium for script hosts, which installers and admin tooling also do.
+
+**KERB-001.** Successful 4769 service tickets with RC4 encryption (`0x17` or `0x18`) for at least `--kerb-services` (default 3) distinct services, requested by one account within 10 minutes. RC4 tickets are encrypted with the service account's password hash and can be cracked offline, which is why attackers request them in bulk. Computer accounts (`$`) and `krbtgt` are excluded: their passwords are random and long, and their tickets are requested constantly.
+
+*False positives:* legacy applications that only support RC4. The real fix is to set those service accounts to AES only. *Gaps:* an attacker who requests AES tickets, or one ticket at a time over days, will not trip the threshold; pair this with honeypot service accounts.
+
+**KERB-002.** Successful 4768 TGTs with `PreAuthType` 0, grouped per source IP; high when one source collects two or more such accounts. Accounts with "Do not require Kerberos pre-authentication" set return a reply that can be cracked offline without any password.
+
+*False positives:* the few legacy accounts that genuinely need pre-auth disabled. List them, and every other hit is worth a look.
 
 **EVADE-001.** Event 1102 means the Security log was cleared. Legitimate clears are rare and should be change-managed, so every one is worth an analyst's time. Look at what happened on the host just before it.

