@@ -30,7 +30,7 @@ Generated from 76 security events in: `sample_logs/auth.log`, `sample_logs/windo
 - **Time:** 2026-11-10 02:13:06 to 2026-11-10 02:15:55 UTC (25 events)
 - **Host:** `web01`
 - **User:** `root`
-- **Source IP:** `203.0.113.45`
+- **Source IP:** `203.0.113.45` (external)
 - **ATT&CK:** T1110 Brute Force, T1078 Valid Accounts
 
 root logged in from 203.0.113.45 after 24 failures from that IP in the previous 30 min (24 of them against this account). Treat as compromised until proven otherwise.
@@ -93,7 +93,7 @@ Nov 10 02:19:55 web01 usermod[41305]: add 'svc-backup' to group 'sudo'
 
 - **Time:** 2026-11-10 04:13:27 to 2026-11-10 04:18:41 UTC (20 events)
 - **Host:** `web01`
-- **Source IP:** `198.51.100.77`
+- **Source IP:** `198.51.100.77` (external)
 - **ATT&CK:** T1110.003 Brute Force: Password Spraying
 
 198.51.100.77 failed 20 logins against 10 different accounts. Many users with few attempts each is typical of spraying.
@@ -161,7 +161,7 @@ Security log on WS-FIN-07.corp.example was cleared by thandi. Attackers do this 
 - **Time:** 2026-11-10 02:13:06 to 2026-11-10 02:15:46 UTC (24 events)
 - **Host:** `web01`
 - **User:** `root`
-- **Source IP:** `203.0.113.45`
+- **Source IP:** `203.0.113.45` (external)
 - **ATT&CK:** T1110.001 Brute Force: Password Guessing
 
 203.0.113.45 failed 24 logins (at least 10 within 5 min).
@@ -206,7 +206,7 @@ Nov 10 02:18:55 web01 useradd[41301]: new user: name=svc-backup, UID=1003, GID=1
 - **Time:** 2026-11-10 09:30:00 to 2026-11-10 09:32:48 UTC (15 events)
 - **Host:** `JUMP01.corp.example`
 - **User:** `administrator`
-- **Source IP:** `203.0.113.199`
+- **Source IP:** `203.0.113.199` (external)
 - **ATT&CK:** T1110.001 Brute Force: Password Guessing
 
 203.0.113.199 failed 15 logins (at least 10 within 5 min).

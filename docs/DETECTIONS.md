@@ -23,6 +23,8 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 
 *False positives:* a user who forgot their password and then got it right from a shared NAT IP. Five failures is a deliberately high bar for that.
 
+**Allow-lists and source scope.** Auth alerts (AUTH-*) from sources in `--allow-ip` / `--allow-file` are dropped, which is how you stop a vulnerability scanner or a jump host from paging the SOC every night. Account and process alerts are never suppressed by IP. Every source IP is tagged internal or external using an explicit range list (not Python's `is_private`, which also counts documentation ranges as private). AUTH-003 from an external source is always critical.
+
 **ACCT-001 to ACCT-003.** Any new account is worth a look; an account that becomes a member of a privileged group (Administrators, Domain Admins, sudo, wheel and others in `PRIVILEGED_GROUPS`) within 60 minutes of being created is a classic attacker persistence step and is raised as critical.
 
 *False positives:* IT onboarding scripts. Allow-list the provisioning account in your SIEM rather than lowering severity.
