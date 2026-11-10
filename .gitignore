@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.vscode/
+.idea/
+.env
+.claude/
+# Real logs from real systems never go in this repo
+*.evtx
+real_logs/
+report.md
