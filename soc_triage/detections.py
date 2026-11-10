@@ -65,6 +65,8 @@ class Thresholds:
     success_after_failures: int = 5      # failures before a success that look like a compromise
     success_lookback_min: int = 30
     new_admin_window_min: int = 60       # account created then made admin within this window
+    kerberoast_services: int = 3         # distinct RC4 service tickets from one account ...
+    kerberoast_window_min: int = 10      # ... within this many minutes
     max_evidence: int = 10
 
 
@@ -98,6 +100,21 @@ def _max_in_window(events: list[Event], window: timedelta) -> int:
     return best
 
 
+def _max_distinct_users_in_window(events: list[Event], window: timedelta) -> int:
+    best, start = 0, 0
+    counts: dict[str, int] = defaultdict(int)
+    for end, e in enumerate(events):
+        counts[e.user.lower()] += 1
+        while e.timestamp - events[start].timestamp > window:
+            old = events[start].user.lower()
+            counts[old] -= 1
+            if not counts[old]:
+                del counts[old]
+            start += 1
+        best = max(best, len(counts))
+    return best
+
+
 # --- rules ------------------------------------------------------------------
 
 def detect_brute_force_and_spray(events: list[Event], t: Thresholds) -> list[Alert]:
@@ -111,11 +128,14 @@ def detect_brute_force_and_spray(events: list[Event], t: Thresholds) -> list[Ale
     alerts = []
     for ip, failures in by_ip.items():
         for burst in _sessions(failures, window):
-            if _max_in_window(burst, window) < t.brute_force_count:
+            # Spraying is judged on distinct accounts, not volume: a careful sprayer makes one
+            # guess per account and never reaches the brute force count.
+            spraying = _max_distinct_users_in_window(burst, window) >= t.spray_distinct_users
+            if not spraying and _max_in_window(burst, window) < t.brute_force_count:
                 continue
             users = sorted({e.user for e in burst if e.user})
             hosts = sorted({e.host for e in burst if e.host})
-            if len(users) >= t.spray_distinct_users:
+            if spraying:
                 alerts.append(Alert(
                     rule_id="AUTH-002",
                     title="Password spraying from single source",
@@ -375,6 +395,75 @@ def detect_executable_dropped(events: list[Event], t: Thresholds) -> list[Alert]
     return alerts
 
 
+RC4_ENCRYPTION = {"0x17", "0x18"}  # RC4-HMAC and RC4-HMAC-EXP: crackable offline
+
+
+def _is_user_service(service: str) -> bool:
+    # Computer accounts ($) have random 120-character passwords and krbtgt is the KDC itself,
+    # so tickets for them are not worth cracking and are requested constantly.
+    return bool(service) and not service.endswith("$") and service.lower() != "krbtgt"
+
+
+def detect_kerberoasting(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1558.003: one account requesting RC4 service tickets for several user-run services."""
+    window = timedelta(minutes=t.kerberoast_window_min)
+    by_user: dict[str, list[Event]] = defaultdict(list)
+    for e in events:
+        if (e.event_type == ev.TGS_REQUEST and e.extra.get("encryption") in RC4_ENCRYPTION
+                and e.extra.get("status") in ("", "0x0") and _is_user_service(str(e.extra.get("service", "")))):
+            by_user[e.user.lower()].append(e)
+
+    alerts = []
+    for requests in by_user.values():
+        for burst in _sessions(requests, window):
+            services = sorted({str(e.extra["service"]) for e in burst})
+            if len(services) < t.kerberoast_services:
+                continue
+            sources = sorted({e.src_ip for e in burst if e.src_ip})
+            alerts.append(Alert(
+                rule_id="KERB-001",
+                title="Possible Kerberoasting",
+                severity="high",
+                mitre=[("T1558.003", "Steal or Forge Kerberos Tickets: Kerberoasting")],
+                first_seen=burst[0].timestamp, last_seen=burst[-1].timestamp,
+                description=(f"{burst[0].user} requested RC4-encrypted service tickets for {len(services)} "
+                             f"service accounts in {t.kerberoast_window_min} min. RC4 tickets can be cracked "
+                             f"offline to recover the service account passwords. Rotate those passwords "
+                             f"and check the requesting host."),
+                host=", ".join(sorted({e.host for e in burst if e.host})), user=burst[0].user,
+                src_ip=sources[0] if len(sources) == 1 else "", count=len(burst),
+                evidence=_evidence(burst, t.max_evidence),
+                details={"services": services, "source_ips": sources},
+            ))
+    return alerts
+
+
+def detect_asrep_roasting(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1558.004: TGTs issued without Kerberos pre-authentication, grouped per source."""
+    by_ip: dict[str, list[Event]] = defaultdict(list)
+    for e in events:
+        if (e.event_type == ev.TGT_REQUEST and str(e.extra.get("pre_auth_type")) == "0"
+                and e.extra.get("status") in ("", "0x0")):
+            by_ip[e.src_ip].append(e)
+    alerts = []
+    for ip, tgts in by_ip.items():
+        users = sorted({e.user for e in tgts if e.user})
+        alerts.append(Alert(
+            rule_id="KERB-002",
+            title="Kerberos TGT issued without pre-authentication (AS-REP roasting)",
+            severity="high" if len(users) >= 2 else "medium",
+            mitre=[("T1558.004", "Steal or Forge Kerberos Tickets: AS-REP Roasting")],
+            first_seen=tgts[0].timestamp, last_seen=tgts[-1].timestamp,
+            description=(f"{len(tgts)} TGT(s) for {', '.join(users)} issued without pre-authentication"
+                         + (f" to {ip}" if ip else "") + ". The reply can be cracked offline. Enable "
+                         f"pre-authentication on these accounts unless there is a documented reason."),
+            host=", ".join(sorted({e.host for e in tgts if e.host})), user=", ".join(users), src_ip=ip,
+            count=len(tgts), evidence=_evidence(tgts, t.max_evidence),
+            details={"accounts": users},
+        ))
+    return alerts
+
+
 RULES: list[Callable[[list[Event], Thresholds], list[Alert]]] = [
     detect_brute_force_and_spray,
     detect_success_after_failures,
@@ -383,6 +472,8 @@ RULES: list[Callable[[list[Event], Thresholds], list[Alert]]] = [
     detect_office_child_process,
     detect_script_host_external_connection,
     detect_executable_dropped,
+    detect_kerberoasting,
+    detect_asrep_roasting,
     detect_log_cleared,
 ]
 
