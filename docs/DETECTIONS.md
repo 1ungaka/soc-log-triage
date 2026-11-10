@@ -18,6 +18,9 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 | FILE-001 | Executable or script written by Office or a script host | medium / high | T1105, T1204.002 | Sysmon 11 |
 | KERB-001 | Possible Kerberoasting | high | T1558.003 | DC 4769 |
 | KERB-002 | Kerberos TGT issued without pre-authentication | medium / high | T1558.004 | DC 4768 |
+| WEB-001 | Directory or file brute forcing | medium | T1595.003 | Web access log (404s) |
+| WEB-002 | Path traversal / local file inclusion | high / critical | T1190 | Web access log |
+| WEB-003 | Vulnerability scanner user agent | medium | T1595.002 | Web access log |
 | EVADE-001 | Security event log cleared | high | T1685.005 | Windows 1102 |
 
 ## Logic and tuning
@@ -32,7 +35,7 @@ Kerberos pre-authentication failures with status `0x18` (wrong password, event 4
 
 *False positives:* a user who forgot their password and then got it right from a shared NAT IP. Five failures is a deliberately high bar for that.
 
-**Allow-lists and source scope.** Auth alerts (AUTH-*) from sources in `--allow-ip` / `--allow-file` are dropped, which is how you stop a vulnerability scanner or a jump host from paging the SOC every night. Account and process alerts are never suppressed by IP. Every source IP is tagged internal or external using an explicit range list (not Python's `is_private`, which also counts documentation ranges as private). AUTH-003 from an external source is always critical.
+**Allow-lists and source scope.** Auth alerts (AUTH-*) and web alerts (WEB-*) from sources in `--allow-ip` / `--allow-file` are dropped, which is how you stop a vulnerability scanner or a jump host from paging the SOC every night. Account and process alerts are never suppressed by IP. Every source IP is tagged internal or external using an explicit range list (not Python's `is_private`, which also counts documentation ranges as private). AUTH-003 from an external source is always critical.
 
 **ACCT-001 to ACCT-003.** Any new account is worth a look; an account that becomes a member of a privileged group (Administrators, Domain Admins, sudo, wheel and others in `PRIVILEGED_GROUPS`) within 60 minutes of being created is a classic attacker persistence step and is raised as critical.
 
@@ -60,5 +63,17 @@ Kerberos pre-authentication failures with status `0x18` (wrong password, event 4
 **KERB-002.** Successful 4768 TGTs with `PreAuthType` 0, grouped per source IP; high when one source collects two or more such accounts. Accounts with "Do not require Kerberos pre-authentication" set return a reply that can be cracked offline without any password.
 
 *False positives:* the few legacy accounts that genuinely need pre-auth disabled. List them, and every other hit is worth a look.
+
+**WEB-001.** At least `--web-404` (default 20) 404 responses to one client IP within 5 minutes. Wordlist tools such as gobuster and ffuf request hundreds of paths that do not exist. The alert also lists every request from that source in the same period that did **not** get a 404, because those are what the scan discovered and what the attacker will try next.
+
+*False positives:* crawlers following stale links, and broken pages that load many missing assets. *Gaps:* a slow scan spread over hours stays under the window.
+
+**WEB-002.** The request target is URL-decoded up to three times, so `%252e%252e%252f` becomes `%2e%2e%2f` and then `../`. It then alerts on `..` used as a whole path segment (with `/` or `\` around it) or on sensitive files and wrappers: `/etc/passwd`, `/etc/shadow`, `/proc/self/`, `win.ini`, `web.config`, `php://filter`, `file://`. A name like `report..final.pdf` does not match, because its dots are not a path segment. Severity is **critical** when a traversal request got a 200 response with a body, because the file may have been returned.
+
+*False positives:* broken relative links that send a raw `../`. Browsers normalise these before sending, so they are rare. *Gaps:* payloads in POST bodies are not in access logs.
+
+**WEB-003.** The user agent names a known scanner (sqlmap, nikto, nmap, gobuster, ffuf, nuclei, wpscan and others). One alert per source, with the tools seen.
+
+*False positives:* your own approved scans; allow-list their source. *Gaps:* the user agent is chosen by the client, so a careful attacker changes it. Treat this rule as a cheap early warning, not as coverage.
 
 **EVADE-001.** Event 1102 means the Security log was cleared. Legitimate clears are rare and should be change-managed, so every one is worth an analyst's time. Look at what happened on the host just before it.

