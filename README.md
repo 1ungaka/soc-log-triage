@@ -15,6 +15,9 @@ No dependencies beyond the Python 3.10+ standard library.
 | ACCT-002 | Account added to a privileged group | T1098 |
 | ACCT-003 | New account made admin within an hour (correlated) | T1098, T1136.001 |
 | EXEC-001 | Encoded PowerShell, with the payload decoded | T1059.001, T1027 |
+| EXEC-002 | Office app spawning a shell or script host | T1204.002, T1566.001 |
+| NET-001 | Script host connecting to an external address | T1105, T1071.001 |
+| FILE-001 | Office or script host dropping an executable or script | T1105, T1204.002 |
 | EVADE-001 | Security event log cleared | T1070.001 |
 
 Logic, tuning, false positives and known gaps for each rule are in [docs/DETECTIONS.md](docs/DETECTIONS.md).
@@ -66,6 +69,7 @@ Or install it to get a `soc-triage` command: `pip install -e .[dev]`.
 ### Input formats
 
 - **Linux:** `auth.log` / `secure` with classic syslog (`Nov 10 02:13:04`, treated as UTC; set the year with `--year`) or ISO-8601 timestamps.
+- **Sysmon:** events 1 (process create), 3 (network connection) and 11 (file create) as JSON lines or a JSON array, with Sysmon's own field names (`Image`, `ParentImage`, `CommandLine`, `DestinationIp`, `TargetFilename`, `UtcTime`, ...). Recognised by `Channel` or by the presence of `Image`, so they can be mixed with Security events in one file.
 - **Windows:** Security events as JSON lines or a JSON array with fields such as `EventID`, `TimeCreated`, `Computer`, `TargetUserName`, `SubjectUserName`, `IpAddress`, `CommandLine`. Event IDs used: 1102, 4624, 4625, 4688, 4720, 4728, 4732, 4756. An export like this works:
 
 ```powershell
@@ -83,6 +87,7 @@ Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4624,4625,4688,4720,4732,
 2. A password spray against ten usernames.
 3. A Word document on a finance workstation launching a hidden, encoded PowerShell download cradle.
 4. An RDP brute force against a jump host, a new local admin, then the Security log cleared.
+5. The same finance workstation seen through Sysmon (`sysmon.jsonl`): Word drops a `.vbs`, launches PowerShell, PowerShell calls out to the internet and writes `update.exe`.
 
 It also includes benign activity that must **not** alert: a user mistyping their password, `-ExecutionPolicy Bypass` scripts, and a non-privileged group change. All IPs come from the RFC 5737 documentation ranges.
 

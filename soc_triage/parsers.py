@@ -106,17 +106,57 @@ def _clean(value) -> str:
     return "" if value == "-" else value
 
 
+SYSMON_IDS = {1, 3, 11}
+
+
+def _is_sysmon(record: dict, event_id: int) -> bool:
+    channel = str(record.get("Channel") or record.get("ProviderName") or "")
+    if "sysmon" in channel.lower():
+        return True
+    # Exports without a channel: Sysmon events carry Image; Security events do not.
+    return event_id in SYSMON_IDS and "Image" in record
+
+
+def _short_user(value: str) -> str:
+    # Sysmon reports DOMAIN\user; Security events report the bare name.
+    return value.rsplit("\\", 1)[-1] if value else ""
+
+
+def _sysmon_event(record: dict, event_id: int, ts: datetime, host: str, raw: str) -> Event | None:
+    image = _clean(record.get("Image"))
+    user = _short_user(_clean(record.get("User")))
+    if event_id == 1:
+        return Event(ts, "windows-sysmon", ev.PROCESS_CREATED, host, user, "", raw,
+                     {"event_id": 1, "image": image,
+                      "command_line": _clean(record.get("CommandLine")),
+                      "parent_image": _clean(record.get("ParentImage")),
+                      "hashes": _clean(record.get("Hashes"))})
+    if event_id == 3:
+        return Event(ts, "windows-sysmon", ev.NETWORK_CONNECTION, host, user, _clean(record.get("SourceIp")), raw,
+                     {"event_id": 3, "image": image,
+                      "dest_ip": _clean(record.get("DestinationIp")),
+                      "dest_port": _clean(record.get("DestinationPort")),
+                      "dest_host": _clean(record.get("DestinationHostname"))})
+    if event_id == 11:
+        return Event(ts, "windows-sysmon", ev.FILE_CREATED, host, user, "", raw,
+                     {"event_id": 11, "image": image, "target": _clean(record.get("TargetFilename"))})
+    return None
+
+
 def _win_event(record: dict) -> Event | None:
     try:
         event_id = int(record.get("EventID") or record.get("Id") or record.get("event_id"))
     except (TypeError, ValueError):
         return None
-    ts_raw = record.get("TimeCreated") or record.get("@timestamp") or record.get("timestamp")
+    ts_raw = (record.get("UtcTime") or record.get("TimeCreated") or record.get("@timestamp")
+              or record.get("timestamp"))
     if not ts_raw:
         return None
     ts = _parse_iso_time(str(ts_raw))
     host = _clean(record.get("Computer") or record.get("host"))
     raw = json.dumps(record, sort_keys=True)
+    if _is_sysmon(record, event_id):
+        return _sysmon_event(record, event_id, ts, host, raw)
     ip = _clean(record.get("IpAddress"))
     target = _clean(record.get("TargetUserName"))
     subject = _clean(record.get("SubjectUserName"))

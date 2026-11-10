@@ -12,6 +12,8 @@ ACCOUNT_CREATED = "account_created"
 GROUP_MEMBER_ADDED = "group_member_added"
 PROCESS_CREATED = "process_created"
 LOG_CLEARED = "log_cleared"
+NETWORK_CONNECTION = "network_connection"
+FILE_CREATED = "file_created"
 
 
 @dataclass(frozen=True)

