@@ -1,0 +1,31 @@
+title: Linux User Added To Privileged Group
+id: 140ab4d4-c6bf-4f1d-b3fb-30a41828217c
+status: experimental
+description: |
+    Detects auditd USER_MGMT records for a user added to sudo, wheel, adm or root.
+    soc-log-triage rule ACCT-002 on Linux.
+references:
+    - https://attack.mitre.org/techniques/T1098/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.persistence
+    - attack.privilege-escalation
+    - attack.t1098
+logsource:
+    product: linux
+    service: auditd
+detection:
+    selection:
+        type: 'USER_MGMT'
+        op: 'add-user-to-group'
+        grp:
+            - 'sudo'
+            - 'wheel'
+            - 'adm'
+            - 'root'
+        res: 'success'
+    condition: selection
+falsepositives:
+    - Configuration management granting admin rights
+level: high

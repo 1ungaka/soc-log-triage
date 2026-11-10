@@ -15,7 +15,6 @@ Generated from 103 security events in: `sample_logs/audit.log`, `sample_logs/aut
 |---|---|---|
 | [T1027](https://attack.mitre.org/techniques/T1027/) | Obfuscated Files or Information | 2 |
 | [T1059.001](https://attack.mitre.org/techniques/T1059/001/) | Command and Scripting Interpreter: PowerShell | 2 |
-| [T1070.001](https://attack.mitre.org/techniques/T1070/001/) | Indicator Removal: Clear Windows Event Logs | 1 |
 | [T1071.001](https://attack.mitre.org/techniques/T1071/001/) | Application Layer Protocol: Web Protocols | 1 |
 | [T1078](https://attack.mitre.org/techniques/T1078/) | Valid Accounts | 2 |
 | [T1098](https://attack.mitre.org/techniques/T1098/) | Account Manipulation | 3 |
@@ -26,6 +25,7 @@ Generated from 103 security events in: `sample_logs/audit.log`, `sample_logs/aut
 | [T1136.001](https://attack.mitre.org/techniques/T1136/001/) | Create Account: Local Account | 6 |
 | [T1204.002](https://attack.mitre.org/techniques/T1204/002/) | User Execution: Malicious File | 4 |
 | [T1566.001](https://attack.mitre.org/techniques/T1566/001/) | Phishing: Spearphishing Attachment | 2 |
+| [T1685.005](https://attack.mitre.org/techniques/T1685/005/) | Disable or Modify Tools: Clear Windows Event Logs | 1 |
 
 ## Alerts
 
@@ -268,7 +268,7 @@ winword.exe started powershell.exe. Documents should not launch interpreters; th
 - **Time:** 2026-11-10 09:55:00 to 2026-11-10 09:55:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
 - **User:** `thandi`
-- **ATT&CK:** T1070.001 Indicator Removal: Clear Windows Event Logs
+- **ATT&CK:** T1685.005 Disable or Modify Tools: Clear Windows Event Logs
 
 Security log on WS-FIN-07.corp.example was cleared by thandi. Attackers do this to hide their tracks; check what happened just before.
 

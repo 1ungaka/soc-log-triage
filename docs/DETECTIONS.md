@@ -1,5 +1,7 @@
 # Detection rules
 
+ATT&CK IDs follow ATT&CK v20.1. Sigma versions of these rules are in [../sigma](../sigma/README.md).
+
 Every rule works on normalized events (see `soc_triage/events.py`), so the same logic covers Linux `sshd` and `auditd` logs, Windows Security events and Sysmon.
 
 | ID | Rule | Severity | ATT&CK | Data sources |
@@ -14,7 +16,7 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 | EXEC-002 | Office application spawned a shell or script host | high | T1204.002, T1566.001 | Windows 4688, Sysmon 1 |
 | NET-001 | Script host connected to external address | medium | T1105, T1071.001 | Sysmon 3 |
 | FILE-001 | Executable or script written by Office or a script host | medium / high | T1105, T1204.002 | Sysmon 11 |
-| EVADE-001 | Security event log cleared | high | T1070.001 | Windows 1102 |
+| EVADE-001 | Security event log cleared | high | T1685.005 | Windows 1102 |
 
 ## Logic and tuning
 

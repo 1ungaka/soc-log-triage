@@ -1,0 +1,21 @@
+title: Local User Account Created
+id: fc7d02da-efdc-4cdc-9dd8-edfc51910720
+status: experimental
+description: Detects creation of a user account (event 4720). soc-log-triage rule ACCT-001.
+references:
+    - https://attack.mitre.org/techniques/T1136/001/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.persistence
+    - attack.t1136.001
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4720
+    condition: selection
+falsepositives:
+    - IT onboarding; allow-list the provisioning account
+level: medium

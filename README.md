@@ -18,9 +18,9 @@ No dependencies beyond the Python 3.10+ standard library.
 | EXEC-002 | Office app spawning a shell or script host | T1204.002, T1566.001 |
 | NET-001 | Script host connecting to an external address | T1105, T1071.001 |
 | FILE-001 | Office or script host dropping an executable or script | T1105, T1204.002 |
-| EVADE-001 | Security event log cleared | T1070.001 |
+| EVADE-001 | Security event log cleared | T1685.005 |
 
-Logic, tuning, false positives and known gaps for each rule are in [docs/DETECTIONS.md](docs/DETECTIONS.md).
+Logic, tuning, false positives and known gaps for each rule are in [docs/DETECTIONS.md](docs/DETECTIONS.md). The same detections are published as **Sigma rules** in [sigma/](sigma/README.md), validated with `sigma-cli` in CI and convertible to Splunk, Elastic, Sentinel and other SIEMs. ATT&CK IDs follow ATT&CK v20.1.
 
 ## Quick start
 
@@ -107,10 +107,12 @@ The tests cover each rule's true positives, the false positives it is designed t
 ```
 soc_triage/
   events.py       normalized Event model
-  parsers.py      auth.log and Windows JSON parsers
+  parsers.py      auth.log, auditd, Windows Security and Sysmon parsers
+  enrich.py       internal/external IP scope and allow-lists
   detections.py   detection rules and thresholds
   report.py       text, JSON and Markdown output
   cli.py          command line interface
+sigma/            the same detections as Sigma rules, validated in CI
 tests/            pytest suite
 sample_logs/      synthetic attack scenario
 docs/             rule documentation and example report
@@ -118,9 +120,13 @@ docs/             rule documentation and example report
 
 ## Roadmap
 
-- Sigma rule export for each detection
-- Sysmon (event IDs 1, 3, 11) and Linux `auditd` parsers
-- GeoIP enrichment and allow-lists for known scanners and admin IPs
+Done in v0.2.0: allow-lists and IP scope (#1), Sysmon (#2), auditd (#3), Sigma rules (#4).
+
+Next:
+- Kerberos detections: Kerberoasting (4769 with RC4, T1558.003) and AS-REP roasting (4768, T1558.004)
+- Offline GeoIP and ASN enrichment for external sources
+- Web server access logs (Apache/Nginx): scanning, path traversal and web shell patterns
+- Express AUTH-003 and ACCT-003 as Sigma temporal correlations once backends support chained correlations well
 
 ## License
 

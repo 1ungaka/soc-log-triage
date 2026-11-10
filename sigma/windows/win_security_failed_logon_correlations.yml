@@ -1,0 +1,71 @@
+title: Failed Logon
+id: e35b7e0f-ecea-441e-a1bb-6b7ac1f550cb
+name: failed_logon
+status: experimental
+description: Base rule for the brute force and spraying correlations (event 4625).
+references:
+    - https://attack.mitre.org/techniques/T1110/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.credential-access
+    - attack.t1110
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4625
+    condition: selection
+falsepositives:
+    - Users mistyping passwords
+level: informational
+---
+title: Brute Force From Single Source
+id: 58044ed3-4f11-4141-b9d3-a2a17118c9e6
+status: experimental
+description: At least 10 failed logons from one source IP in 5 minutes. soc-log-triage rule AUTH-001.
+references:
+    - https://attack.mitre.org/techniques/T1110/001/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.credential-access
+    - attack.t1110.001
+correlation:
+    type: event_count
+    rules:
+        - failed_logon
+    group-by:
+        - IpAddress
+    timespan: 5m
+    condition:
+        gte: 10
+falsepositives:
+    - Services retrying an expired password
+level: medium
+---
+title: Password Spraying From Single Source
+id: 4e84bf73-b430-4020-89c9-08d3c3779a22
+status: experimental
+description: Failed logons against at least 5 distinct accounts from one source IP in 5 minutes. soc-log-triage rule AUTH-002.
+references:
+    - https://attack.mitre.org/techniques/T1110/003/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.credential-access
+    - attack.t1110.003
+correlation:
+    type: value_count
+    rules:
+        - failed_logon
+    group-by:
+        - IpAddress
+    timespan: 5m
+    condition:
+        field: TargetUserName
+        gte: 5
+falsepositives:
+    - Vulnerability scanners with credential checks; allow-list them
+level: high

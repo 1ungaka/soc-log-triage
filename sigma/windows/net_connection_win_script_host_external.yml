@@ -1,0 +1,47 @@
+title: Script Host Connected To External Address
+id: 52a8c21f-1e34-4bbe-91eb-43fe8f8a9a16
+status: experimental
+description: |
+    Detects PowerShell, cmd and common LOLBins making outbound connections to addresses outside
+    internal ranges, typical of payload downloads and C2. soc-log-triage rule NET-001.
+references:
+    - https://attack.mitre.org/techniques/T1105/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.command-and-control
+    - attack.t1105
+    - attack.t1071.001
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\pwsh.exe'
+            - '\wscript.exe'
+            - '\cscript.exe'
+            - '\mshta.exe'
+            - '\rundll32.exe'
+            - '\regsvr32.exe'
+            - '\certutil.exe'
+            - '\bitsadmin.exe'
+            - '\msiexec.exe'
+    filter_main_internal:
+        DestinationIp|cidr:
+            - '10.0.0.0/8'
+            - '172.16.0.0/12'
+            - '192.168.0.0/16'
+            - '100.64.0.0/10'
+            - '127.0.0.0/8'
+            - '169.254.0.0/16'
+            - '::1/128'
+            - 'fc00::/7'
+            - 'fe80::/10'
+    condition: selection and not 1 of filter_main_*
+falsepositives:
+    - Admin scripts calling public APIs or package feeds
+level: medium

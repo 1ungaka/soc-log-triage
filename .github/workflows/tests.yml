@@ -20,3 +20,17 @@ jobs:
       - run: python -m pytest -v
       - name: Scan the sample scenario
         run: python -m soc_triage scan sample_logs/* --year 2026
+
+  sigma:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install sigma-cli
+      - run: sigma plugin install splunk
+      - name: Validate Sigma rules
+        run: sigma check --fail-on-issues sigma/
+      - name: Convert to Splunk
+        run: sigma convert -t splunk --without-pipeline sigma/

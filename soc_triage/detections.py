@@ -271,12 +271,12 @@ def detect_encoded_powershell(events: list[Event], t: Thresholds) -> list[Alert]
 
 
 def detect_log_cleared(events: list[Event], t: Thresholds) -> list[Alert]:
-    """T1070.001 Windows Security log cleared (event 1102)."""
+    """T1685.005 Windows Security log cleared (event 1102)."""
     return [Alert(
         rule_id="EVADE-001",
         title="Security event log cleared",
         severity="high",
-        mitre=[("T1070.001", "Indicator Removal: Clear Windows Event Logs")],
+        mitre=[("T1685.005", "Disable or Modify Tools: Clear Windows Event Logs")],
         first_seen=e.timestamp, last_seen=e.timestamp,
         description=f"Security log on {e.host} was cleared by {e.user or 'unknown'}. "
                     f"Attackers do this to hide their tracks; check what happened just before.",
