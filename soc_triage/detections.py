@@ -14,6 +14,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Callable
+from urllib.parse import unquote
 
 from . import events as ev
 from .enrich import ip_scope, is_allowed
@@ -67,6 +68,8 @@ class Thresholds:
     new_admin_window_min: int = 60       # account created then made admin within this window
     kerberoast_services: int = 3         # distinct RC4 service tickets from one account ...
     kerberoast_window_min: int = 10      # ... within this many minutes
+    web_404_count: int = 20              # 404 responses to one source ...
+    web_404_window_min: int = 5          # ... within this many minutes
     max_evidence: int = 10
 
 
@@ -464,6 +467,120 @@ def detect_asrep_roasting(events: list[Event], t: Thresholds) -> list[Alert]:
     return alerts
 
 
+def _web_requests(events: list[Event]) -> list[Event]:
+    return [e for e in events if e.event_type == ev.HTTP_REQUEST]
+
+
+def detect_web_404_flood(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1595.003: one source collecting many 404s, the footprint of directory and file brute forcing."""
+    window = timedelta(minutes=t.web_404_window_min)
+    by_ip: dict[str, list[Event]] = defaultdict(list)
+    all_by_ip: dict[str, list[Event]] = defaultdict(list)
+    for e in _web_requests(events):
+        all_by_ip[e.src_ip].append(e)
+        if e.extra.get("status") == 404:
+            by_ip[e.src_ip].append(e)
+    alerts = []
+    for ip, misses in by_ip.items():
+        for burst in _sessions(misses, window):
+            if _max_in_window(burst, window) < t.web_404_count:
+                continue
+            paths = list(dict.fromkeys(str(e.extra.get("path", "")) for e in burst))
+            # What the scan found: same source, same time span, anything that was not a 404
+            found = sorted({f"{e.extra.get('status')} {e.extra.get('path')}" for e in all_by_ip[ip]
+                            if burst[0].timestamp <= e.timestamp <= burst[-1].timestamp
+                            and e.extra.get("status") != 404})
+            alerts.append(Alert(
+                rule_id="WEB-001",
+                title="Directory or file brute forcing (many 404s from one source)",
+                severity="medium",
+                mitre=[("T1595.003", "Active Scanning: Wordlist Scanning")],
+                first_seen=burst[0].timestamp, last_seen=burst[-1].timestamp,
+                description=(f"{ip} requested {len(burst)} paths that do not exist "
+                             f"(at least {t.web_404_count} within {t.web_404_window_min} min). "
+                             + (f"Paths it found: {', '.join(found[:5])}." if found
+                                else "None of its requests found anything.")),
+                host=burst[0].host, src_ip=ip, count=len(burst), evidence=_evidence(burst, t.max_evidence),
+                details={"sample_paths": paths[:10], "distinct_paths": len(paths), "found": found},
+            ))
+    return alerts
+
+
+# A ".." that is a whole path segment, with / or \ around it: "../", "..\", "/..", "=../".
+# A filename like "report..final.pdf" does not match, because its dots are not a segment.
+_TRAVERSAL = re.compile(r"(?:^|[/\\=])\.\.(?:[/\\]|$)")
+_SENSITIVE_FILES = re.compile(
+    r"(?i)/etc/(?:passwd|shadow|hosts|group)\b|/proc/self/|win\.ini|boot\.ini|"
+    r"windows[/\\]system32|web\.config|\.htpasswd|php://(?:filter|input)|file://"
+)
+
+
+def decode_url(value: str, rounds: int = 3) -> str:
+    """URL-decode repeatedly, so double-encoded payloads (%252e -> %2e -> .) are revealed."""
+    for _ in range(rounds):
+        decoded = unquote(value)
+        if decoded == value:
+            break
+        value = decoded
+    return value
+
+
+def detect_path_traversal(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1190: path traversal and local file inclusion attempts, grouped per source."""
+    hits: dict[str, list[Event]] = defaultdict(list)
+    for e in _web_requests(events):
+        target = decode_url(str(e.extra.get("target", "")))
+        if _TRAVERSAL.search(target) or _SENSITIVE_FILES.search(target):
+            hits[e.src_ip].append(e)
+    alerts = []
+    for ip, reqs in hits.items():
+        # A 200 with a body to a traversal request may mean the file was actually returned.
+        served = [e for e in reqs if e.extra.get("status") == 200 and e.extra.get("size", 0) > 0]
+        alerts.append(Alert(
+            rule_id="WEB-002",
+            title="Path traversal / local file inclusion attempt",
+            severity="critical" if served else "high",
+            mitre=[("T1190", "Exploit Public-Facing Application")],
+            first_seen=reqs[0].timestamp, last_seen=reqs[-1].timestamp,
+            description=(f"{ip} sent {len(reqs)} request(s) trying to read files outside the web root"
+                         + (f"; {len(served)} got a 200 response with content, so a file may have been "
+                            f"disclosed. Check the response size against the real file." if served
+                            else "; none succeeded.")),
+            host=reqs[0].host, src_ip=ip, count=len(reqs), evidence=_evidence(reqs, t.max_evidence),
+            details={"decoded_targets": list(dict.fromkeys(decode_url(str(e.extra.get("target", ""))) for e in reqs))[:10],
+                     "served": len(served)},
+        ))
+    return alerts
+
+
+SCANNER_AGENTS = re.compile(
+    r"(?i)\b(sqlmap|nikto|nmap|masscan|zgrab|gobuster|dirbuster|dirb|feroxbuster|ffuf|wfuzz|"
+    r"nuclei|wpscan|acunetix|nessus|openvas|w3af|hydra|whatweb|joomscan)\b"
+)
+
+
+def detect_scanner_user_agent(events: list[Event], t: Thresholds) -> list[Alert]:
+    """T1595.002: requests announcing a known vulnerability scanner, one alert per source."""
+    by_ip: dict[str, list[Event]] = defaultdict(list)
+    tools: dict[str, set[str]] = defaultdict(set)
+    for e in _web_requests(events):
+        m = SCANNER_AGENTS.search(str(e.extra.get("user_agent", "")))
+        if m:
+            by_ip[e.src_ip].append(e)
+            tools[e.src_ip].add(m.group(1).lower())
+    return [Alert(
+        rule_id="WEB-003",
+        title="Vulnerability scanner user agent",
+        severity="medium",
+        mitre=[("T1595.002", "Active Scanning: Vulnerability Scanning")],
+        first_seen=reqs[0].timestamp, last_seen=reqs[-1].timestamp,
+        description=(f"{ip} sent {len(reqs)} request(s) identifying as {', '.join(sorted(tools[ip]))}. "
+                     f"If this is not an approved scan, block the source and review what else it requested."),
+        host=reqs[0].host, src_ip=ip, count=len(reqs), evidence=_evidence(reqs, t.max_evidence),
+        details={"tools": sorted(tools[ip])},
+    ) for ip, reqs in by_ip.items()]
+
+
 RULES: list[Callable[[list[Event], Thresholds], list[Alert]]] = [
     detect_brute_force_and_spray,
     detect_success_after_failures,
@@ -474,6 +591,9 @@ RULES: list[Callable[[list[Event], Thresholds], list[Alert]]] = [
     detect_executable_dropped,
     detect_kerberoasting,
     detect_asrep_roasting,
+    detect_web_404_flood,
+    detect_path_traversal,
+    detect_scanner_user_agent,
     detect_log_cleared,
 ]
 
@@ -481,8 +601,8 @@ RULES: list[Callable[[list[Event], Thresholds], list[Alert]]] = [
 def _enrich(alerts: list[Alert], allow: list) -> list[Alert]:
     kept = []
     for a in alerts:
-        if a.src_ip and a.rule_id.startswith("AUTH-") and is_allowed(a.src_ip, allow):
-            continue  # trusted source: scanner, jump host, admin subnet
+        if a.src_ip and a.rule_id.startswith(("AUTH-", "WEB-")) and is_allowed(a.src_ip, allow):
+            continue  # trusted source: approved scanner, jump host, admin subnet
         if a.src_ip:
             a.details["src_ip_scope"] = scope = ip_scope(a.src_ip)
             if a.rule_id == "AUTH-003" and scope == "external" and a.severity != "critical":
