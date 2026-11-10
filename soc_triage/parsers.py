@@ -106,6 +106,28 @@ def _clean(value) -> str:
     return "" if value == "-" else value
 
 
+def _clean_ip(value) -> str:
+    # Domain controllers log IPv4 clients as IPv4-mapped IPv6 (::ffff:10.0.0.5)
+    ip = _clean(value)
+    return ip[7:] if ip.lower().startswith("::ffff:") and "." in ip else ip
+
+
+def _account(value) -> str:
+    # Kerberos events can log "user@REALM"; keep the account name
+    return _clean(value).split("@", 1)[0]
+
+
+def _hex_code(value) -> str:
+    """Normalise codes logged as '0x17', '0X17' or 23 to '0x17'."""
+    text = _clean(value)
+    if not text:
+        return ""
+    try:
+        return hex(int(text, 16) if text.lower().startswith("0x") else int(text))
+    except ValueError:
+        return text.lower()
+
+
 SYSMON_IDS = {1, 3, 11}
 
 
@@ -157,7 +179,7 @@ def _win_event(record: dict) -> Event | None:
     raw = json.dumps(record, sort_keys=True)
     if _is_sysmon(record, event_id):
         return _sysmon_event(record, event_id, ts, host, raw)
-    ip = _clean(record.get("IpAddress"))
+    ip = _clean_ip(record.get("IpAddress"))
     target = _clean(record.get("TargetUserName"))
     subject = _clean(record.get("SubjectUserName"))
 
@@ -187,6 +209,22 @@ def _win_event(record: dict) -> Event | None:
     if event_id == 1102:
         return Event(ts, "windows-security", ev.LOG_CLEARED, host, subject, "", raw,
                      {"event_id": 1102})
+    if event_id == 4769:
+        return Event(ts, "windows-security", ev.TGS_REQUEST, host, _account(record.get("TargetUserName")), ip, raw,
+                     {"event_id": 4769, "service": _clean(record.get("ServiceName")),
+                      "encryption": _hex_code(record.get("TicketEncryptionType")),
+                      "status": _hex_code(record.get("Status")),
+                      "ticket_options": _clean(record.get("TicketOptions"))})
+    if event_id == 4768:
+        return Event(ts, "windows-security", ev.TGT_REQUEST, host, _account(record.get("TargetUserName")), ip, raw,
+                     {"event_id": 4768, "pre_auth_type": _clean(record.get("PreAuthType")),
+                      "encryption": _hex_code(record.get("TicketEncryptionType")),
+                      "status": _hex_code(record.get("Status"))})
+    if event_id == 4771 and _hex_code(record.get("Status")) == "0x18":
+        # 0x18 = wrong password during Kerberos pre-authentication. Counting it as an auth
+        # failure lets AUTH-001/AUTH-002 catch Kerberos spraying that never creates a 4625.
+        return Event(ts, "windows-security", ev.AUTH_FAILURE, host, _account(record.get("TargetUserName")), ip, raw,
+                     {"event_id": 4771, "status": "0x18", "service": "kerberos"})
     return None
 
 

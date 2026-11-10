@@ -14,6 +14,8 @@ PROCESS_CREATED = "process_created"
 LOG_CLEARED = "log_cleared"
 NETWORK_CONNECTION = "network_connection"
 FILE_CREATED = "file_created"
+TGS_REQUEST = "kerberos_tgs_request"  # 4769 service ticket
+TGT_REQUEST = "kerberos_tgt_request"  # 4768 ticket granting ticket
 
 
 @dataclass(frozen=True)
