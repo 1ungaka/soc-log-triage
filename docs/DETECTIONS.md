@@ -10,7 +10,10 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 | ACCT-001 | Local account created | medium | T1136.001 | `useradd`, Windows 4720 |
 | ACCT-002 | Account added to privileged group | high | T1098 | `usermod`/`gpasswd`, Windows 4728/4732/4756 |
 | ACCT-003 | Newly created account added to privileged group | critical | T1098, T1136.001 | correlation of ACCT-001 + ACCT-002 |
-| EXEC-001 | Encoded PowerShell command | medium / high | T1059.001, T1027 | Windows 4688 with command line auditing |
+| EXEC-001 | Encoded PowerShell command | medium / high | T1059.001, T1027 | Windows 4688 with command line auditing, Sysmon 1 |
+| EXEC-002 | Office application spawned a shell or script host | high | T1204.002, T1566.001 | Windows 4688, Sysmon 1 |
+| NET-001 | Script host connected to external address | medium | T1105, T1071.001 | Sysmon 3 |
+| FILE-001 | Executable or script written by Office or a script host | medium / high | T1105, T1204.002 | Sysmon 11 |
 | EVADE-001 | Security event log cleared | high | T1070.001 | Windows 1102 |
 
 ## Logic and tuning
@@ -33,5 +36,15 @@ Every rule works on normalized events (see `soc_triage/events.py`), so the same 
 
 *False positives:* some management agents (SCCM, some RMM tools) use encoded commands. Check the parent process.
 *Requirement:* Windows "Include command line in process creation events" must be enabled, or 4688 has no command line.
+
+**EXEC-002.** The parent is an Office app (Word, Excel, PowerPoint, Outlook, Access, Publisher, OneNote, Visio) and the child is a shell, script host or common LOLBin (`cmd`, `powershell`, `pwsh`, `wscript`, `cscript`, `mshta`, `rundll32`, `regsvr32`, `certutil`, `bitsadmin`, `msiexec`). This is one of the highest-value endpoint detections for phishing.
+
+*False positives:* some legacy add-ins and macros used by finance teams. Allow-list by command line, not by parent.
+
+**NET-001.** A script host or LOLBin from the list above makes a network connection to an external address (see source scope above). Connections are grouped per host, process, destination and port, so a beaconing process produces one alert with a count rather than hundreds.
+
+*False positives:* admin scripts that call public APIs or package feeds. *Gaps:* malware that injects into a browser or other allowed process will not be seen by image name.
+
+**FILE-001.** Sysmon 11 shows an Office app or script host writing a file with an executable or script extension (`.exe`, `.dll`, `.ps1`, `.vbs`, `.js`, `.hta`, `.bat`, `.msi` and others). High when the writer is Office, because documents dropping scripts is almost never legitimate; medium for script hosts, which installers and admin tooling also do.
 
 **EVADE-001.** Event 1102 means the Security log was cleared. Legitimate clears are rare and should be change-managed, so every one is worth an analyst's time. Look at what happened on the host just before it.
