@@ -1,0 +1,47 @@
+title: Office Application Spawned Shell Or Script Host
+id: b5db8424-916c-4ca4-bfc6-e86c0dfb39b2
+status: experimental
+description: |
+    Detects an Office application starting a shell, script host or common LOLBin, the usual sign
+    of a malicious macro or document exploit. soc-log-triage rule EXEC-002.
+references:
+    - https://attack.mitre.org/techniques/T1204/002/
+    - https://attack.mitre.org/techniques/T1566/001/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.execution
+    - attack.t1204.002
+    - attack.initial-access
+    - attack.t1566.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent:
+        ParentImage|endswith:
+            - '\WINWORD.EXE'
+            - '\EXCEL.EXE'
+            - '\POWERPNT.EXE'
+            - '\OUTLOOK.EXE'
+            - '\MSACCESS.EXE'
+            - '\MSPUB.EXE'
+            - '\ONENOTE.EXE'
+            - '\VISIO.EXE'
+    selection_child:
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\pwsh.exe'
+            - '\wscript.exe'
+            - '\cscript.exe'
+            - '\mshta.exe'
+            - '\rundll32.exe'
+            - '\regsvr32.exe'
+            - '\certutil.exe'
+            - '\bitsadmin.exe'
+            - '\msiexec.exe'
+    condition: all of selection_*
+falsepositives:
+    - Legacy add-ins and finance macros; allow-list by command line, not by parent
+level: high

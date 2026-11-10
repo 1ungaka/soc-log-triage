@@ -1,0 +1,49 @@
+title: Office Application Wrote Executable Or Script
+id: 8993d623-0095-4195-af2c-3913903f5f53
+status: experimental
+description: |
+    Detects an Office application writing a file with an executable or script extension,
+    which documents almost never do legitimately. soc-log-triage rule FILE-001.
+references:
+    - https://attack.mitre.org/techniques/T1204/002/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.execution
+    - attack.t1204.002
+    - attack.command-and-control
+    - attack.t1105
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - '\WINWORD.EXE'
+            - '\EXCEL.EXE'
+            - '\POWERPNT.EXE'
+            - '\OUTLOOK.EXE'
+            - '\MSACCESS.EXE'
+            - '\MSPUB.EXE'
+            - '\ONENOTE.EXE'
+            - '\VISIO.EXE'
+        TargetFilename|endswith:
+            - '.exe'
+            - '.dll'
+            - '.scr'
+            - '.ps1'
+            - '.psm1'
+            - '.vbs'
+            - '.vbe'
+            - '.js'
+            - '.jse'
+            - '.hta'
+            - '.bat'
+            - '.cmd'
+            - '.wsf'
+            - '.msi'
+            - '.cpl'
+    condition: selection
+falsepositives:
+    - Add-in installers launched from Office
+level: high

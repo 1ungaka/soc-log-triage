@@ -1,0 +1,21 @@
+title: Security Event Log Cleared
+id: aa270cf0-9887-4aac-8cf7-755233b198d6
+status: experimental
+description: Detects the Windows Security log being cleared (event 1102). soc-log-triage rule EVADE-001.
+references:
+    - https://attack.mitre.org/techniques/T1685/005/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.defense-impairment
+    - attack.t1685.005
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 1102
+    condition: selection
+falsepositives:
+    - Change-managed log maintenance
+level: high

@@ -1,0 +1,36 @@
+title: PowerShell Started With Encoded Command
+id: 683638f9-184e-4702-b888-7dedb1b56be0
+status: experimental
+description: |
+    Detects powershell.exe or pwsh.exe started with any abbreviation of -EncodedCommand.
+    Attackers use Base64 encoded commands to hide download cradles and other payloads.
+    soc-log-triage rule EXEC-001.
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+    - https://github.com/1ungaka/soc-log-triage/blob/main/docs/DETECTIONS.md
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.execution
+    - attack.t1059.001
+    - attack.stealth
+    - attack.t1027
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+    selection_flag:
+        CommandLine|windash|contains:
+            - ' -e '
+            - ' -ec '
+            - ' -en '
+            - ' -enc '
+            - ' -enco'
+    condition: all of selection_*
+falsepositives:
+    - Management agents such as SCCM and some RMM tools; check the parent process
+level: medium

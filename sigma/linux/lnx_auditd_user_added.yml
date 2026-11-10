@@ -1,0 +1,22 @@
+title: Linux User Account Created
+id: 0b3105c0-066b-4c5a-93f8-b9f3e1b746d7
+status: experimental
+description: Detects auditd ADD_USER records. soc-log-triage rule ACCT-001 on Linux.
+references:
+    - https://attack.mitre.org/techniques/T1136/001/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.persistence
+    - attack.t1136.001
+logsource:
+    product: linux
+    service: auditd
+detection:
+    selection:
+        type: 'ADD_USER'
+        res: 'success'
+    condition: selection
+falsepositives:
+    - Package installs that create service accounts
+level: medium
