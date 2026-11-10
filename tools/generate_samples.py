@@ -105,6 +105,42 @@ def windows_events() -> list[dict]:
     return ev
 
 
+def dc_events() -> list[dict]:
+    """DC01's Security log: the attacker on WS-FIN-07 (10.20.4.17) goes after Active Directory."""
+    base = datetime(2026, 11, 10, 9, 0, 0, tzinfo=timezone.utc)
+    ev = []
+    dc = "DC01.corp.example"
+
+    def add(minutes, event_id, **fields):
+        ts = (base + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z")
+        ev.append({"EventID": event_id, "TimeCreated": ts, "Computer": dc, **fields})
+
+    # Normal Kerberos traffic: AES tickets, pre-auth on, computer accounts
+    for i, (user, svc, ip) in enumerate([("sipho", "svc_sharepoint", "10.20.4.30"), ("thandi", "FILE01$", "10.20.4.17"),
+                                         ("lerato", "svc_web", "10.20.5.12"), ("it-admin", "svc_sql", "10.20.1.5")]):
+        add(1 + i, 4768, TargetUserName=user, IpAddress=f"::ffff:{ip}", PreAuthType="2", TicketEncryptionType="0x12", Status="0x0")
+        add(1.1 + i, 4769, TargetUserName=f"{user}@CORP.EXAMPLE", ServiceName=svc, IpAddress=f"::ffff:{ip}",
+            TicketEncryptionType="0x12", Status="0x0", TicketOptions="0x40810000")
+    # Legacy noise that must stay quiet: RC4 to a computer account and krbtgt, one RC4 to a single service
+    add(6, 4769, TargetUserName="printsrv$@CORP.EXAMPLE", ServiceName="FILE01$", IpAddress="::ffff:10.20.9.9", TicketEncryptionType="0x17", Status="0x0")
+    add(6.2, 4769, TargetUserName="printsrv$@CORP.EXAMPLE", ServiceName="krbtgt", IpAddress="::ffff:10.20.9.9", TicketEncryptionType="0x17", Status="0x0")
+    add(7, 4769, TargetUserName="sipho@CORP.EXAMPLE", ServiceName="svc_legacy", IpAddress="::ffff:10.20.4.30", TicketEncryptionType="0x17", Status="0x0")
+    add(8, 4771, TargetUserName="lerato", IpAddress="::ffff:10.20.5.12", Status="0x12")  # locked out: not a guess
+
+    # 1) Kerberos password spray from the compromised workstation (no 4625s are written)
+    for i, user in enumerate(["administrator", "it-admin", "sipho", "lerato", "svc_backup", "svc_sql", "helpdesk", "ceo"]):
+        add(20 + i * 0.15, 4771, TargetUserName=user, IpAddress="::ffff:10.20.4.17", Status="0x18", PreAuthType="2")
+    # 2) AS-REP roasting accounts that have pre-authentication disabled
+    for i, user in enumerate(["svc-scanner", "legacy-app"]):
+        add(24 + i * 0.1, 4768, TargetUserName=user, IpAddress="::ffff:10.20.4.17", PreAuthType="0",
+            TicketEncryptionType="0x17", Status="0x0")
+    # 3) Kerberoasting: RC4 tickets for every service account with an SPN
+    for i, svc in enumerate(["svc_sql", "svc_web", "svc_backup", "svc_sharepoint"]):
+        add(26 + i * 0.05, 4769, TargetUserName="thandi@CORP.EXAMPLE", ServiceName=svc, IpAddress="::ffff:10.20.4.17",
+            TicketEncryptionType="0x17", Status="0x0", TicketOptions="0x40810000")
+    return ev
+
+
 def sysmon_events() -> list[dict]:
     """The same WS-FIN-07 intrusion as seen by Sysmon, plus benign noise."""
     base = datetime(2026, 11, 10, 9, 0, 0)
@@ -175,6 +211,9 @@ def audit_log() -> list[str]:
 def main() -> None:
     OUT.mkdir(exist_ok=True)
     (OUT / "audit.log").write_text("\n".join(audit_log()) + "\n", encoding="utf-8")
+    with (OUT / "dc01_security.jsonl").open("w", encoding="utf-8") as fh:
+        for record in dc_events():
+            fh.write(json.dumps(record) + "\n")
     with (OUT / "sysmon.jsonl").open("w", encoding="utf-8") as fh:
         for record in sysmon_events():
             fh.write(json.dumps(record) + "\n")
