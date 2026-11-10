@@ -1,11 +1,11 @@
 # Log triage report
 
-Generated from 103 security events in: `sample_logs/audit.log`, `sample_logs/auth.log`, `sample_logs/sysmon.jsonl`, `sample_logs/windows_security.jsonl`
+Generated from 128 security events in: `sample_logs/audit.log`, `sample_logs/auth.log`, `sample_logs/dc01_security.jsonl`, `sample_logs/sysmon.jsonl`, `sample_logs/windows_security.jsonl`
 
 | Severity | Alerts |
 |---|---|
 | critical | 5 |
-| high | 7 |
+| high | 10 |
 | medium | 8 |
 | low | 0 |
 
@@ -21,9 +21,11 @@ Generated from 103 security events in: `sample_logs/audit.log`, `sample_logs/aut
 | [T1105](https://attack.mitre.org/techniques/T1105/) | Ingress Tool Transfer | 3 |
 | [T1110](https://attack.mitre.org/techniques/T1110/) | Brute Force | 2 |
 | [T1110.001](https://attack.mitre.org/techniques/T1110/001/) | Brute Force: Password Guessing | 3 |
-| [T1110.003](https://attack.mitre.org/techniques/T1110/003/) | Brute Force: Password Spraying | 1 |
+| [T1110.003](https://attack.mitre.org/techniques/T1110/003/) | Brute Force: Password Spraying | 2 |
 | [T1136.001](https://attack.mitre.org/techniques/T1136/001/) | Create Account: Local Account | 6 |
 | [T1204.002](https://attack.mitre.org/techniques/T1204/002/) | User Execution: Malicious File | 4 |
+| [T1558.003](https://attack.mitre.org/techniques/T1558/003/) | Steal or Forge Kerberos Tickets: Kerberoasting | 1 |
+| [T1558.004](https://attack.mitre.org/techniques/T1558/004/) | Steal or Forge Kerberos Tickets: AS-REP Roasting | 1 |
 | [T1566.001](https://attack.mitre.org/techniques/T1566/001/) | Phishing: Spearphishing Attachment | 2 |
 | [T1685.005](https://attack.mitre.org/techniques/T1685/005/) | Disable or Modify Tools: Clear Windows Event Logs | 1 |
 
@@ -263,7 +265,71 @@ winword.exe started powershell.exe. Documents should not launch interpreters; th
 
 </details>
 
-### 12. [HIGH] Security event log cleared (EVADE-001)
+### 12. [HIGH] Password spraying from single source (AUTH-002)
+
+- **Time:** 2026-11-10 09:20:00 to 2026-11-10 09:21:03 UTC (8 events)
+- **Host:** `DC01.corp.example`
+- **Source IP:** `10.20.4.17` (internal)
+- **ATT&CK:** T1110.003 Brute Force: Password Spraying
+
+10.20.4.17 failed 8 logins against 8 different accounts. Many users with few attempts each is typical of spraying.
+
+<details><summary>Evidence</summary>
+
+```
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "administrator", "TimeCreated": "2026-11-10T09:20:00Z"}
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "it-admin", "TimeCreated": "2026-11-10T09:20:09Z"}
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "sipho", "TimeCreated": "2026-11-10T09:20:18Z"}
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "lerato", "TimeCreated": "2026-11-10T09:20:27Z"}
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "svc_backup", "TimeCreated": "2026-11-10T09:20:36Z"}
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "svc_sql", "TimeCreated": "2026-11-10T09:20:45Z"}
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "helpdesk", "TimeCreated": "2026-11-10T09:20:54Z"}
+{"Computer": "DC01.corp.example", "EventID": 4771, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "2", "Status": "0x18", "TargetUserName": "ceo", "TimeCreated": "2026-11-10T09:21:03Z"}
+```
+
+</details>
+
+### 13. [HIGH] Kerberos TGT issued without pre-authentication (AS-REP roasting) (KERB-002)
+
+- **Time:** 2026-11-10 09:24:00 to 2026-11-10 09:24:06 UTC (2 events)
+- **Host:** `DC01.corp.example`
+- **User:** `legacy-app, svc-scanner`
+- **Source IP:** `10.20.4.17` (internal)
+- **ATT&CK:** T1558.004 Steal or Forge Kerberos Tickets: AS-REP Roasting
+
+2 TGT(s) for legacy-app, svc-scanner issued without pre-authentication to 10.20.4.17. The reply can be cracked offline. Enable pre-authentication on these accounts unless there is a documented reason.
+
+<details><summary>Evidence</summary>
+
+```
+{"Computer": "DC01.corp.example", "EventID": 4768, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "0", "Status": "0x0", "TargetUserName": "svc-scanner", "TicketEncryptionType": "0x17", "TimeCreated": "2026-11-10T09:24:00Z"}
+{"Computer": "DC01.corp.example", "EventID": 4768, "IpAddress": "::ffff:10.20.4.17", "PreAuthType": "0", "Status": "0x0", "TargetUserName": "legacy-app", "TicketEncryptionType": "0x17", "TimeCreated": "2026-11-10T09:24:06Z"}
+```
+
+</details>
+
+### 14. [HIGH] Possible Kerberoasting (KERB-001)
+
+- **Time:** 2026-11-10 09:26:00 to 2026-11-10 09:26:09 UTC (4 events)
+- **Host:** `DC01.corp.example`
+- **User:** `thandi`
+- **Source IP:** `10.20.4.17` (internal)
+- **ATT&CK:** T1558.003 Steal or Forge Kerberos Tickets: Kerberoasting
+
+thandi requested RC4-encrypted service tickets for 4 service accounts in 10 min. RC4 tickets can be cracked offline to recover the service account passwords. Rotate those passwords and check the requesting host.
+
+<details><summary>Evidence</summary>
+
+```
+{"Computer": "DC01.corp.example", "EventID": 4769, "IpAddress": "::ffff:10.20.4.17", "ServiceName": "svc_sql", "Status": "0x0", "TargetUserName": "thandi@CORP.EXAMPLE", "TicketEncryptionType": "0x17", "TicketOptions": "0x40810000", "TimeCreated": "2026-11-10T09:26:00Z"}
+{"Computer": "DC01.corp.example", "EventID": 4769, "IpAddress": "::ffff:10.20.4.17", "ServiceName": "svc_web", "Status": "0x0", "TargetUserName": "thandi@CORP.EXAMPLE", "TicketEncryptionType": "0x17", "TicketOptions": "0x40810000", "TimeCreated": "2026-11-10T09:26:03Z"}
+{"Computer": "DC01.corp.example", "EventID": 4769, "IpAddress": "::ffff:10.20.4.17", "ServiceName": "svc_backup", "Status": "0x0", "TargetUserName": "thandi@CORP.EXAMPLE", "TicketEncryptionType": "0x17", "TicketOptions": "0x40810000", "TimeCreated": "2026-11-10T09:26:06Z"}
+{"Computer": "DC01.corp.example", "EventID": 4769, "IpAddress": "::ffff:10.20.4.17", "ServiceName": "svc_sharepoint", "Status": "0x0", "TargetUserName": "thandi@CORP.EXAMPLE", "TicketEncryptionType": "0x17", "TicketOptions": "0x40810000", "TimeCreated": "2026-11-10T09:26:09Z"}
+```
+
+</details>
+
+### 15. [HIGH] Security event log cleared (EVADE-001)
 
 - **Time:** 2026-11-10 09:55:00 to 2026-11-10 09:55:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -280,7 +346,7 @@ Security log on WS-FIN-07.corp.example was cleared by thandi. Attackers do this 
 
 </details>
 
-### 13. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 16. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 02:13:06 to 2026-11-10 02:15:46 UTC (24 events)
 - **Host:** `web01`
@@ -308,7 +374,7 @@ Nov 10 02:15:46 web01 sshd[41243]: Failed password for root from 203.0.113.45 po
 
 </details>
 
-### 14. [MEDIUM] Local account created (ACCT-001)
+### 17. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 02:18:55 to 2026-11-10 02:18:55 UTC (1 events)
 - **Host:** `web01`
@@ -325,7 +391,7 @@ Nov 10 02:18:55 web01 useradd[41301]: new user: name=svc-backup, UID=1003, GID=1
 
 </details>
 
-### 15. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 18. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 03:40:00 to 2026-11-10 03:41:18 UTC (14 events)
 - **Host:** `web02`
@@ -353,7 +419,7 @@ node=web02 type=USER_AUTH msg=audit(1794282078.000:9128): pid=813 uid=0 auid=429
 
 </details>
 
-### 16. [MEDIUM] Local account created (ACCT-001)
+### 19. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 03:44:00 to 2026-11-10 03:44:00 UTC (1 events)
 - **Host:** `web02`
@@ -370,7 +436,7 @@ node=web02 type=ADD_USER msg=audit(1794282240.100:9133): pid=950 uid=0 auid=0 se
 
 </details>
 
-### 17. [MEDIUM] Script host connected to external address (NET-001)
+### 20. [MEDIUM] Script host connected to external address (NET-001)
 
 - **Time:** 2026-11-10 09:14:06 to 2026-11-10 09:14:18 UTC (3 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -389,7 +455,7 @@ powershell.exe on WS-FIN-07.corp.example connected to 198.51.100.23:80 3 time(s)
 
 </details>
 
-### 18. [MEDIUM] Executable or script written by script host (FILE-001)
+### 21. [MEDIUM] Executable or script written by script host (FILE-001)
 
 - **Time:** 2026-11-10 09:14:30 to 2026-11-10 09:14:30 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -406,7 +472,7 @@ powershell.exe wrote C:\Users\thandi\AppData\Local\Temp\update.exe. Hash the fil
 
 </details>
 
-### 19. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 22. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 09:30:00 to 2026-11-10 09:32:48 UTC (15 events)
 - **Host:** `JUMP01.corp.example`
@@ -434,7 +500,7 @@ powershell.exe wrote C:\Users\thandi\AppData\Local\Temp\update.exe. Hash the fil
 
 </details>
 
-### 20. [MEDIUM] Local account created (ACCT-001)
+### 23. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 09:41:00 to 2026-11-10 09:41:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`

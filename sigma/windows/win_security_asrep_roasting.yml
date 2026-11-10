@@ -1,0 +1,25 @@
+title: Kerberos TGT Issued Without Pre-Authentication
+id: 315c2c11-b125-442c-9d65-d9fdd7b6ee6c
+status: experimental
+description: |
+    Detects a TGT issued for an account without Kerberos pre-authentication (4768, PreAuthType 0),
+    whose reply can be cracked offline. soc-log-triage rule KERB-002.
+references:
+    - https://attack.mitre.org/techniques/T1558/004/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.credential-access
+    - attack.t1558.004
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4768
+        PreAuthType: 0
+        Status: '0x0'
+    condition: selection
+falsepositives:
+    - Accounts with pre-authentication disabled for a documented legacy reason
+level: medium

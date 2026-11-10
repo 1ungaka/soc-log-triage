@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "soc-log-triage"
-version = "0.2.0"
+version = "0.3.0"
 description = "Triage Linux auth and Windows Security logs into MITRE ATT&CK-mapped alerts"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,0 +1,59 @@
+title: RC4 Kerberos Service Ticket For User Service Account
+id: b7ea69e0-f09c-4c34-aa68-304923f215b4
+name: rc4_service_ticket
+status: experimental
+description: |
+    Base rule for the Kerberoasting correlation: a successful RC4-encrypted service ticket
+    (4769) for an account that is not a computer account or krbtgt.
+references:
+    - https://attack.mitre.org/techniques/T1558/003/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.credential-access
+    - attack.t1558
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4769
+        TicketEncryptionType:
+            - '0x17'
+            - '0x18'
+        Status: '0x0'
+    filter_main_computer:
+        ServiceName|endswith: '$'
+    filter_main_krbtgt:
+        ServiceName: 'krbtgt'
+    condition: selection and not 1 of filter_main_*
+falsepositives:
+    - Legacy applications that only support RC4
+level: informational
+---
+title: Kerberoasting From Single Account
+id: 15fbb364-5a11-4b6a-b1f1-f03b31d0dfdf
+status: experimental
+description: |
+    One account requesting RC4 service tickets for at least 3 distinct service accounts in
+    10 minutes. soc-log-triage rule KERB-001.
+references:
+    - https://attack.mitre.org/techniques/T1558/003/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.credential-access
+    - attack.t1558.003
+correlation:
+    type: value_count
+    rules:
+        - rc4_service_ticket
+    group-by:
+        - TargetUserName
+    timespan: 10m
+    condition:
+        field: ServiceName
+        gte: 3
+falsepositives:
+    - Legacy service accounts used together by one application; enforce AES on them
+level: high

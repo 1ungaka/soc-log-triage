@@ -36,6 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--bf-window", type=int, default=t.brute_force_window_min, help="brute force window in minutes")
     scan.add_argument("--spray-users", type=int, default=t.spray_distinct_users,
                       help="distinct users that make a burst password spraying")
+    scan.add_argument("--kerb-services", type=int, default=t.kerberoast_services,
+                      help="distinct RC4 service tickets from one account that count as Kerberoasting")
     return p
 
 
@@ -53,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     thresholds = Thresholds(brute_force_count=args.bf_count, brute_force_window_min=args.bf_window,
-                            spray_distinct_users=args.spray_users)
+                            spray_distinct_users=args.spray_users, kerberoast_services=args.kerb_services)
     try:
         allow = parse_allow_list(args.allow_ip)
         if args.allow_file:

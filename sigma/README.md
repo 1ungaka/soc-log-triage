@@ -11,7 +11,9 @@ The detections from `soc_triage/detections.py`, published in [Sigma](https://git
 | `windows/win_security_local_account_created.yml` | ACCT-001 | T1136.001 |
 | `windows/win_security_privileged_group_member_added.yml` | ACCT-002 | T1098 |
 | `windows/win_security_log_cleared.yml` | EVADE-001 | T1685.005 |
-| `windows/win_security_failed_logon_correlations.yml` | AUTH-001, AUTH-002 (Sigma correlation rules) | T1110.001, T1110.003 |
+| `windows/win_security_failed_logon_correlations.yml` | AUTH-001, AUTH-002 (Sigma correlation rules over 4625 and 4771) | T1110.001, T1110.003 |
+| `windows/win_security_kerberoasting_correlation.yml` | KERB-001 (Sigma correlation rule) | T1558.003 |
+| `windows/win_security_asrep_roasting.yml` | KERB-002 | T1558.004 |
 | `linux/lnx_auditd_user_added.yml` | ACCT-001 | T1136.001 |
 | `linux/lnx_auditd_user_added_to_privileged_group.yml` | ACCT-002 | T1098 |
 

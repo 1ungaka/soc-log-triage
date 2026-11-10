@@ -2,11 +2,14 @@ title: Failed Logon
 id: e35b7e0f-ecea-441e-a1bb-6b7ac1f550cb
 name: failed_logon
 status: experimental
-description: Base rule for the brute force and spraying correlations (event 4625).
+description: |
+    Base rule for the brute force and spraying correlations: failed logons (4625) and
+    Kerberos pre-authentication failures with a wrong password (4771, status 0x18).
 references:
     - https://attack.mitre.org/techniques/T1110/
 author: 1ungaka
 date: 2026-11-10
+modified: 2026-11-10
 tags:
     - attack.credential-access
     - attack.t1110
@@ -14,9 +17,12 @@ logsource:
     product: windows
     service: security
 detection:
-    selection:
+    selection_logon:
         EventID: 4625
-    condition: selection
+    selection_kerberos:
+        EventID: 4771
+        Status: '0x18'
+    condition: 1 of selection_*
 falsepositives:
     - Users mistyping passwords
 level: informational
