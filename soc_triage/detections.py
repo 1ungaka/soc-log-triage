@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from typing import Callable
 
 from . import events as ev
+from .enrich import ip_scope, is_allowed
 from .events import Event
 from .parsers import PRIVILEGED_GROUPS
 
@@ -292,8 +293,24 @@ RULES: list[Callable[[list[Event], Thresholds], list[Alert]]] = [
 ]
 
 
-def run_all(events: list[Event], thresholds: Thresholds | None = None) -> list[Alert]:
+def _enrich(alerts: list[Alert], allow: list) -> list[Alert]:
+    kept = []
+    for a in alerts:
+        if a.src_ip and a.rule_id.startswith("AUTH-") and is_allowed(a.src_ip, allow):
+            continue  # trusted source: scanner, jump host, admin subnet
+        if a.src_ip:
+            a.details["src_ip_scope"] = scope = ip_scope(a.src_ip)
+            if a.rule_id == "AUTH-003" and scope == "external" and a.severity != "critical":
+                a.severity = "critical"
+                a.description += " The source is external to the organisation."
+        kept.append(a)
+    return kept
+
+
+def run_all(events: list[Event], thresholds: Thresholds | None = None,
+            allow: list | None = None) -> list[Alert]:
+    """Run every rule. `allow` is a list of trusted networks (see enrich.parse_allow_list)."""
     thresholds = thresholds or Thresholds()
     events = sorted(events, key=lambda e: e.timestamp)
-    alerts = [a for rule in RULES for a in rule(events, thresholds)]
+    alerts = _enrich([a for rule in RULES for a in rule(events, thresholds)], allow or [])
     return sorted(alerts, key=lambda a: (-SEVERITY_ORDER[a.severity], a.first_seen))

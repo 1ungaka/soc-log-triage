@@ -12,6 +12,11 @@ _COLORS = {"critical": "\033[1;41m", "high": "\033[1;31m", "medium": "\033[33m",
 _RESET = "\033[0m"
 
 
+def _ip(a: Alert) -> str:
+    scope = a.details.get("src_ip_scope")
+    return f"{a.src_ip} ({scope})" if a.src_ip and scope else a.src_ip
+
+
 def to_text(alerts: list[Alert], color: bool = False) -> str:
     if not alerts:
         return "No alerts."
@@ -23,7 +28,7 @@ def to_text(alerts: list[Alert], color: bool = False) -> str:
         mitre = ", ".join(tid for tid, _ in a.mitre)
         lines.append(f"[{sev}] {a.rule_id} {a.title}  ({mitre})")
         lines.append(f"    when : {a.first_seen:%Y-%m-%d %H:%M:%S} -> {a.last_seen:%H:%M:%S} UTC  x{a.count}")
-        who = "  ".join(f"{k}={v}" for k, v in (("host", a.host), ("user", a.user), ("src_ip", a.src_ip)) if v)
+        who = "  ".join(f"{k}={v}" for k, v in (("host", a.host), ("user", a.user), ("src_ip", _ip(a))) if v)
         if who:
             lines.append(f"    who  : {who}")
         lines.append(f"    what : {a.description}")
@@ -69,7 +74,8 @@ def to_markdown(alerts: list[Alert], sources: list[str], event_count: int) -> st
         ]
         for label, value in (("Host", a.host), ("User", a.user), ("Source IP", a.src_ip)):
             if value:
-                out.append(f"- **{label}:** `{value}`")
+                scope = a.details.get("src_ip_scope") if label == "Source IP" else ""
+                out.append(f"- **{label}:** `{value}`" + (f" ({scope})" if scope else ""))
         out.append(f"- **ATT&CK:** {', '.join(f'{tid} {name}' for tid, name in a.mitre)}")
         out += ["", a.description, ""]
         if a.details.get("decoded_command"):

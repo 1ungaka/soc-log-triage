@@ -54,7 +54,12 @@ python -m soc_triage scan events.jsonl --output json --fail-on high
 
 # Tune thresholds for a noisy environment
 python -m soc_triage scan auth.log --bf-count 20 --bf-window 10 --spray-users 8 --min-severity high
+
+# Suppress auth alerts from trusted sources (vulnerability scanner, jump hosts)
+python -m soc_triage scan auth.log --allow-ip 10.10.5.0/24 --allow-file trusted_sources.txt
 ```
+
+Every alert with a source IP is tagged `internal` (RFC 1918, CGNAT, loopback, link-local, IPv6 ULA) or `external`. A successful login after failures from an external IP is always raised as critical.
 
 Or install it to get a `soc-triage` command: `pip install -e .[dev]`.
 
