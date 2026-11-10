@@ -317,9 +317,55 @@ def parse_audit_log(lines: Iterable[str], default_host: str = "") -> Iterator[Ev
                         {**extra, "group": group})
 
 
+# --- Web server access logs ---------------------------------------------------
+
+# Apache / Nginx "combined" format; the referrer and user agent are optional so the older
+# "common" format parses too. Quoted fields may contain escaped quotes (\" or \x22).
+# (?:[^"\\]|\\.)* means "any characters except a quote, where backslash-escapes are allowed".
+_WEB_LINE = re.compile(
+    r'^(?P<ip>[0-9a-fA-F:.]+) '                     # client IP
+    r'\S+ '                                         # identd, always "-"
+    r'(?P<authuser>\S+) '                           # HTTP auth user or "-"
+    r'\[(?P<ts>[^\]]+)\] '                          # [10/Nov/2026:09:14:00 +0000]
+    r'"(?P<request>(?:[^"\\]|\\.)*)" '              # "GET /path?query HTTP/1.1"
+    r'(?P<status>\d{3}) '                           # 200
+    r'(?P<size>\d+|-)'                              # bytes sent, "-" for none
+    r'(?: "(?P<referrer>(?:[^"\\]|\\.)*)"'          # combined format only:
+    r' "(?P<agent>(?:[^"\\]|\\.)*)")?'              #   referrer and user agent
+)
+
+
+def parse_web_log(lines: Iterable[str], host: str = "") -> Iterator[Event]:
+    """Parse web server access log lines (combined or common format). Bad lines are skipped."""
+    for line in lines:
+        line = line.rstrip("\n")
+        m = _WEB_LINE.match(line)
+        if not m:
+            continue
+        try:
+            ts = datetime.strptime(m["ts"], "%d/%b/%Y:%H:%M:%S %z").astimezone(timezone.utc)
+        except ValueError:
+            continue
+        # The request line is normally "METHOD /path?query PROTOCOL", but scanners send junk
+        parts = m["request"].split(" ")
+        method, target = (parts[0], parts[1]) if len(parts) >= 2 else ("", m["request"])
+        path, _, query = target.partition("?")
+        user = m["authuser"]
+        yield Event(ts, "web-access", ev.HTTP_REQUEST, host, "" if user == "-" else user, m["ip"], line, {
+            "method": method,
+            "target": target,
+            "path": path,
+            "query": query,
+            "status": int(m["status"]),
+            "size": 0 if m["size"] == "-" else int(m["size"]),
+            "referrer": "" if m["referrer"] in (None, "-") else m["referrer"],
+            "user_agent": "" if m["agent"] in (None, "-") else m["agent"],
+        })
+
+
 # --- File dispatch ----------------------------------------------------------
 
-FORMATS = ("auth-log", "auditd", "windows-json")
+FORMATS = ("auth-log", "auditd", "web-access", "windows-json")
 
 
 def detect_format(path: Path, sample: str) -> str:
@@ -328,6 +374,8 @@ def detect_format(path: Path, sample: str) -> str:
         return "windows-json"
     if stripped.startswith(("type=", "node=")):
         return "auditd"
+    if _WEB_LINE.match(stripped.split("\n", 1)[0]):
+        return "web-access"
     return "auth-log"
 
 
@@ -342,6 +390,8 @@ def parse_file(path: str | Path, fmt: str = "auto", year: int | None = None) -> 
         events = list(parse_auth_log(text.splitlines(), year=year))
     elif fmt == "auditd":
         events = list(parse_audit_log(text.splitlines()))
+    elif fmt == "web-access":
+        events = list(parse_web_log(text.splitlines()))
     else:
         raise ValueError(f"unknown format: {fmt}")
     return sorted(events, key=lambda e: e.timestamp)

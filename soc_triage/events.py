@@ -16,12 +16,13 @@ NETWORK_CONNECTION = "network_connection"
 FILE_CREATED = "file_created"
 TGS_REQUEST = "kerberos_tgs_request"  # 4769 service ticket
 TGT_REQUEST = "kerberos_tgt_request"  # 4768 ticket granting ticket
+HTTP_REQUEST = "http_request"         # web server access log line
 
 
 @dataclass(frozen=True)
 class Event:
     timestamp: datetime
-    source: str  # "linux-auth" or "windows-security"
+    source: str  # e.g. "linux-auth", "windows-security", "windows-sysmon", "web-access"
     event_type: str
     host: str = ""
     user: str = ""
