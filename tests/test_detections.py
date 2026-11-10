@@ -179,7 +179,7 @@ def test_sample_scenario_end_to_end():
     assert ids == sorted([
         "AUTH-001", "AUTH-001", "AUTH-002", "AUTH-003",
         "ACCT-001", "ACCT-001", "ACCT-003", "ACCT-003",
-        "EXEC-001", "EVADE-001",
+        "EXEC-001", "EXEC-002", "EVADE-001",  # WINWORD -> powershell in 4688 fires both EXEC rules
     ])
 
 
