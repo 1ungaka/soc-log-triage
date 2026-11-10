@@ -1,0 +1,41 @@
+title: Vulnerability Scanner User Agent
+id: 12342353-fa8d-4082-8383-46493bf092db
+status: experimental
+description: |
+    Detects web requests whose user agent names a known vulnerability or content discovery scanner.
+    soc-log-triage rule WEB-003. Attackers can change the user agent, so absence of this alert
+    does not mean no scanning.
+references:
+    - https://attack.mitre.org/techniques/T1595/002/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.reconnaissance
+    - attack.t1595.002
+logsource:
+    category: webserver
+detection:
+    selection:
+        cs-user-agent|contains:
+            - 'sqlmap'
+            - 'nikto'
+            - 'nmap'
+            - 'masscan'
+            - 'zgrab'
+            - 'gobuster'
+            - 'dirbuster'
+            - 'feroxbuster'
+            - 'ffuf'
+            - 'wfuzz'
+            - 'nuclei'
+            - 'wpscan'
+            - 'acunetix'
+            - 'nessus'
+            - 'openvas'
+            - 'w3af'
+            - 'whatweb'
+            - 'joomscan'
+    condition: selection
+falsepositives:
+    - Approved internal vulnerability scans; allow-list the scanner's source address
+level: medium

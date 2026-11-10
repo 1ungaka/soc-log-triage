@@ -208,8 +208,58 @@ def audit_log() -> list[str]:
     return lines
 
 
+def web_access_log() -> list[str]:
+    """web01's Nginx access log: normal visitors, a directory brute force, LFI attempts and sqlmap."""
+    rng = random.Random(80)  # own generator, so the other sample files stay byte-identical
+    t = datetime(2026, 11, 10, 6, 0, 0, tzinfo=timezone.utc)
+    browser = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+    lines = []
+
+    def req(ts, ip, target, status, size, agent, method="GET", ref="-"):
+        lines.append(f'{ip} - - [{ts:%d/%b/%Y:%H:%M:%S} +0000] "{method} {target} HTTP/1.1" '
+                     f'{status} {size} "{ref}" "{agent}"')
+
+    # Normal visitors, including a stray 404 and a filename containing ".."
+    for i, (ip, target, status, size) in enumerate([
+        ("192.0.2.30", "/", 200, 5120), ("192.0.2.30", "/css/site.css", 200, 2210),
+        ("192.0.2.30", "/favicon.ico", 404, 153), ("10.20.4.30", "/files/report..final.pdf", 200, 88412),
+        ("192.0.2.71", "/blog/2026/11/patching-tips", 200, 14210), ("192.0.2.71", "/blog/missing-post", 404, 153),
+    ]):
+        req(t + timedelta(minutes=i * 3), ip, target, status, size, browser)
+
+    # 1) Directory brute force with gobuster: mostly 404s, a couple of hits
+    words = ["admin", "backup", "old", "test", "dev", "api", "config", "db", "uploads", "private", "wp-admin",
+             "phpmyadmin", ".git/HEAD", ".env", "server-status", "logs", "tmp", "cgi-bin", "install", "shell",
+             "secret", "staging", "data", "dump.sql", "panel", "manager", "console", "debug", "portal", "files"]
+    ts = t + timedelta(hours=1)
+    for word in words:
+        ts += timedelta(milliseconds=rng.randint(150, 600))
+        found = word in {"uploads", "files", "server-status"}
+        req(ts, "198.51.100.200", f"/{word}", 403 if word == "server-status" else (301 if found else 404),
+            0 if found else 153, "gobuster/3.6")
+
+    # 2) Path traversal / LFI against a download script: plain, encoded, double encoded; one succeeds
+    ts = t + timedelta(hours=2)
+    for i, (target, status, size) in enumerate([
+        ("/download.php?file=report.pdf", 200, 88412),
+        ("/download.php?file=../../../../etc/passwd", 200, 1789),
+        ("/download.php?file=%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fshadow", 403, 162),
+        ("/download.php?file=%252e%252e%252f%252e%252e%252fwindows%252fwin.ini", 404, 153),
+        ("/download.php?file=php://filter/convert.base64-encode/resource=config.php", 200, 0),
+    ]):
+        req(ts + timedelta(seconds=i * 20), "203.0.113.99", target, status, size, "curl/8.5.0")
+
+    # 3) sqlmap probing a search parameter
+    ts = t + timedelta(hours=3)
+    for i, payload in enumerate(["1", "1%27", "1%20AND%201%3D1", "1%20AND%201%3D2", "1%27%20OR%20%271%27%3D%271"]):
+        req(ts + timedelta(seconds=i * 2), "203.0.113.150", f"/search?id={payload}", 200 if i % 2 == 0 else 500,
+            3100 + i, "sqlmap/1.8.11#stable (https://sqlmap.org)")
+    return lines
+
+
 def main() -> None:
     OUT.mkdir(exist_ok=True)
+    (OUT / "web_access.log").write_text("\n".join(web_access_log()) + "\n", encoding="utf-8")
     (OUT / "audit.log").write_text("\n".join(audit_log()) + "\n", encoding="utf-8")
     with (OUT / "dc01_security.jsonl").open("w", encoding="utf-8") as fh:
         for record in dc_events():
