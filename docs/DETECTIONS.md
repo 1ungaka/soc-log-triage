@@ -1,14 +1,14 @@
 # Detection rules
 
-Every rule works on normalized events (see `soc_triage/events.py`), so the same logic covers Linux `sshd` logs and Windows Security events.
+Every rule works on normalized events (see `soc_triage/events.py`), so the same logic covers Linux `sshd` and `auditd` logs, Windows Security events and Sysmon.
 
 | ID | Rule | Severity | ATT&CK | Data sources |
 |---|---|---|---|---|
-| AUTH-001 | Brute force against account(s) | medium | T1110.001 | sshd `Failed password`, Windows 4625 |
-| AUTH-002 | Password spraying from single source | high | T1110.003 | sshd `Failed password`, Windows 4625 |
-| AUTH-003 | Successful login after repeated failures | high / critical | T1110, T1078 | failures + sshd `Accepted`, Windows 4624 |
-| ACCT-001 | Local account created | medium | T1136.001 | `useradd`, Windows 4720 |
-| ACCT-002 | Account added to privileged group | high | T1098 | `usermod`/`gpasswd`, Windows 4728/4732/4756 |
+| AUTH-001 | Brute force against account(s) | medium | T1110.001 | sshd `Failed password`, auditd `USER_AUTH`, Windows 4625 |
+| AUTH-002 | Password spraying from single source | high | T1110.003 | sshd `Failed password`, auditd `USER_AUTH`, Windows 4625 |
+| AUTH-003 | Successful login after repeated failures | high / critical | T1110, T1078 | failures + sshd `Accepted`, auditd `USER_LOGIN`, Windows 4624 |
+| ACCT-001 | Local account created | medium | T1136.001 | `useradd`, auditd `ADD_USER`, Windows 4720 |
+| ACCT-002 | Account added to privileged group | high | T1098 | `usermod`/`gpasswd`, auditd `USER_MGMT`, Windows 4728/4732/4756 |
 | ACCT-003 | Newly created account added to privileged group | critical | T1098, T1136.001 | correlation of ACCT-001 + ACCT-002 |
 | EXEC-001 | Encoded PowerShell command | medium / high | T1059.001, T1027 | Windows 4688 with command line auditing, Sysmon 1 |
 | EXEC-002 | Office application spawned a shell or script host | high | T1204.002, T1566.001 | Windows 4688, Sysmon 1 |

