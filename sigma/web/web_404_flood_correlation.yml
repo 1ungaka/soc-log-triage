@@ -1,0 +1,45 @@
+title: Web Request Not Found
+id: 241eff80-c5a7-4637-9455-674eb5b6e3c0
+name: web_not_found
+status: experimental
+description: Base rule for the directory brute forcing correlation (HTTP 404 responses).
+references:
+    - https://attack.mitre.org/techniques/T1595/003/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.reconnaissance
+    - attack.t1595
+logsource:
+    category: webserver
+detection:
+    selection:
+        sc-status: 404
+    condition: selection
+falsepositives:
+    - Broken links and missing favicons
+level: informational
+---
+title: Directory Or File Brute Forcing From Single Source
+id: 927425a7-3b38-499a-9c07-77b2130715c6
+status: experimental
+description: At least 20 HTTP 404 responses to one client IP in 5 minutes. soc-log-triage rule WEB-001.
+references:
+    - https://attack.mitre.org/techniques/T1595/003/
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.reconnaissance
+    - attack.t1595.003
+correlation:
+    type: event_count
+    rules:
+        - web_not_found
+    group-by:
+        - c-ip
+    timespan: 5m
+    condition:
+        gte: 20
+falsepositives:
+    - Search engine crawlers following stale links; allow-list verified crawler ranges
+level: medium

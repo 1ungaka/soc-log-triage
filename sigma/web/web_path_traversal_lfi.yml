@@ -1,0 +1,49 @@
+title: Path Traversal Or Local File Inclusion Attempt
+id: 34042f1b-9393-4117-9f01-85c078ef88bb
+status: experimental
+description: |
+    Detects web requests trying to read files outside the web root: "../" sequences (plain,
+    URL-encoded and double-encoded), sensitive system files and PHP wrappers.
+    soc-log-triage rule WEB-002. The Python rule also decodes the URL repeatedly before matching,
+    which catches encodings this keyword list does not.
+references:
+    - https://attack.mitre.org/techniques/T1190/
+    - https://owasp.org/www-community/attacks/Path_Traversal
+author: 1ungaka
+date: 2026-11-10
+tags:
+    - attack.initial-access
+    - attack.t1190
+logsource:
+    category: webserver
+detection:
+    keywords_traversal:
+        cs-uri-query|contains:
+            - '../'
+            - '..\'
+            - '..%2f'
+            - '..%5c'
+            - '%2e%2e%2f'
+            - '%2e%2e/'
+            - '%252e%252e'
+    keywords_files:
+        cs-uri-query|contains:
+            - '/etc/passwd'
+            - '/etc/shadow'
+            - '/proc/self/'
+            - 'win.ini'
+            - 'boot.ini'
+            - 'web.config'
+            - 'php://filter'
+            - 'php://input'
+            - 'file://'
+    keywords_stem:
+        cs-uri-stem|contains:
+            - '/../'
+            - '..%2f'
+            - '..%5c'
+            - '%2e%2e%2f'
+    condition: 1 of keywords_*
+falsepositives:
+    - Broken relative links that send a raw "../"; browsers normalise these, so they are rare
+level: high
