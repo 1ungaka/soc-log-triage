@@ -1,0 +1,70 @@
+Nov 10 01:13:04 web01 sshd[41210]: Accepted publickey for deploy from 192.0.2.10 port 50122 ssh2
+Nov 10 01:23:04 web01 sshd[41211]: Failed password for alice from 192.0.2.44 port 50310 ssh2
+Nov 10 01:24:04 web01 sshd[41212]: Accepted password for alice from 192.0.2.44 port 50311 ssh2
+Nov 10 02:13:06 web01 sshd[41220]: Failed password for root from 203.0.113.45 port 40000 ssh2
+Nov 10 02:13:12 web01 sshd[41221]: Failed password for root from 203.0.113.45 port 40001 ssh2
+Nov 10 02:13:21 web01 sshd[41222]: Failed password for root from 203.0.113.45 port 40002 ssh2
+Nov 10 02:13:28 web01 sshd[41223]: Failed password for root from 203.0.113.45 port 40003 ssh2
+Nov 10 02:13:33 web01 sshd[41224]: Failed password for root from 203.0.113.45 port 40004 ssh2
+Nov 10 02:13:40 web01 sshd[41225]: Failed password for root from 203.0.113.45 port 40005 ssh2
+Nov 10 02:13:48 web01 sshd[41226]: Failed password for root from 203.0.113.45 port 40006 ssh2
+Nov 10 02:13:54 web01 sshd[41227]: Failed password for root from 203.0.113.45 port 40007 ssh2
+Nov 10 02:14:02 web01 sshd[41228]: Failed password for root from 203.0.113.45 port 40008 ssh2
+Nov 10 02:14:10 web01 sshd[41229]: Failed password for root from 203.0.113.45 port 40009 ssh2
+Nov 10 02:14:16 web01 sshd[41230]: Failed password for root from 203.0.113.45 port 40010 ssh2
+Nov 10 02:14:24 web01 sshd[41231]: Failed password for root from 203.0.113.45 port 40011 ssh2
+Nov 10 02:14:28 web01 sshd[41232]: Failed password for root from 203.0.113.45 port 40012 ssh2
+Nov 10 02:14:37 web01 sshd[41233]: Failed password for root from 203.0.113.45 port 40013 ssh2
+Nov 10 02:14:42 web01 sshd[41234]: Failed password for root from 203.0.113.45 port 40014 ssh2
+Nov 10 02:14:51 web01 sshd[41235]: Failed password for root from 203.0.113.45 port 40015 ssh2
+Nov 10 02:14:57 web01 sshd[41236]: Failed password for root from 203.0.113.45 port 40016 ssh2
+Nov 10 02:15:03 web01 sshd[41237]: Failed password for root from 203.0.113.45 port 40017 ssh2
+Nov 10 02:15:10 web01 sshd[41238]: Failed password for root from 203.0.113.45 port 40018 ssh2
+Nov 10 02:15:17 web01 sshd[41239]: Failed password for root from 203.0.113.45 port 40019 ssh2
+Nov 10 02:15:24 web01 sshd[41240]: Failed password for root from 203.0.113.45 port 40020 ssh2
+Nov 10 02:15:33 web01 sshd[41241]: Failed password for root from 203.0.113.45 port 40021 ssh2
+Nov 10 02:15:39 web01 sshd[41242]: Failed password for root from 203.0.113.45 port 40022 ssh2
+Nov 10 02:15:46 web01 sshd[41243]: Failed password for root from 203.0.113.45 port 40023 ssh2
+Nov 10 02:15:55 web01 sshd[41250]: Accepted password for root from 203.0.113.45 port 40031 ssh2
+Nov 10 02:18:55 web01 useradd[41301]: new group: name=svc-backup, GID=1003
+Nov 10 02:18:55 web01 useradd[41301]: new user: name=svc-backup, UID=1003, GID=1003, home=/home/svc-backup, shell=/bin/bash, from=/dev/pts/1
+Nov 10 02:19:55 web01 usermod[41305]: add 'svc-backup' to group 'sudo'
+Nov 10 04:13:27 web01 sshd[41310]: Invalid user admin from 198.51.100.77 port 52000
+Nov 10 04:13:27 web01 sshd[41310]: Failed password for invalid user admin from 198.51.100.77 port 52000 ssh2
+Nov 10 04:13:52 web01 sshd[41311]: Invalid user oracle from 198.51.100.77 port 52001
+Nov 10 04:13:52 web01 sshd[41311]: Failed password for invalid user oracle from 198.51.100.77 port 52001 ssh2
+Nov 10 04:14:03 web01 sshd[41312]: Invalid user test from 198.51.100.77 port 52002
+Nov 10 04:14:03 web01 sshd[41312]: Failed password for invalid user test from 198.51.100.77 port 52002 ssh2
+Nov 10 04:14:24 web01 sshd[41313]: Failed password for ubuntu from 198.51.100.77 port 52003 ssh2
+Nov 10 04:14:39 web01 sshd[41314]: Failed password for postgres from 198.51.100.77 port 52004 ssh2
+Nov 10 04:15:03 web01 sshd[41315]: Failed password for git from 198.51.100.77 port 52005 ssh2
+Nov 10 04:15:13 web01 sshd[41316]: Invalid user jenkins from 198.51.100.77 port 52006
+Nov 10 04:15:13 web01 sshd[41316]: Failed password for invalid user jenkins from 198.51.100.77 port 52006 ssh2
+Nov 10 04:15:26 web01 sshd[41317]: Invalid user ftpuser from 198.51.100.77 port 52007
+Nov 10 04:15:26 web01 sshd[41317]: Failed password for invalid user ftpuser from 198.51.100.77 port 52007 ssh2
+Nov 10 04:15:40 web01 sshd[41318]: Invalid user pi from 198.51.100.77 port 52008
+Nov 10 04:15:40 web01 sshd[41318]: Failed password for invalid user pi from 198.51.100.77 port 52008 ssh2
+Nov 10 04:15:53 web01 sshd[41319]: Invalid user support from 198.51.100.77 port 52009
+Nov 10 04:15:53 web01 sshd[41319]: Failed password for invalid user support from 198.51.100.77 port 52009 ssh2
+Nov 10 04:16:04 web01 sshd[41320]: Invalid user admin from 198.51.100.77 port 52010
+Nov 10 04:16:04 web01 sshd[41320]: Failed password for invalid user admin from 198.51.100.77 port 52010 ssh2
+Nov 10 04:16:17 web01 sshd[41321]: Invalid user oracle from 198.51.100.77 port 52011
+Nov 10 04:16:17 web01 sshd[41321]: Failed password for invalid user oracle from 198.51.100.77 port 52011 ssh2
+Nov 10 04:16:36 web01 sshd[41322]: Invalid user test from 198.51.100.77 port 52012
+Nov 10 04:16:36 web01 sshd[41322]: Failed password for invalid user test from 198.51.100.77 port 52012 ssh2
+Nov 10 04:16:55 web01 sshd[41323]: Failed password for ubuntu from 198.51.100.77 port 52013 ssh2
+Nov 10 04:17:16 web01 sshd[41324]: Failed password for postgres from 198.51.100.77 port 52014 ssh2
+Nov 10 04:17:33 web01 sshd[41325]: Failed password for git from 198.51.100.77 port 52015 ssh2
+Nov 10 04:17:47 web01 sshd[41326]: Invalid user jenkins from 198.51.100.77 port 52016
+Nov 10 04:17:47 web01 sshd[41326]: Failed password for invalid user jenkins from 198.51.100.77 port 52016 ssh2
+Nov 10 04:18:07 web01 sshd[41327]: Invalid user ftpuser from 198.51.100.77 port 52017
+Nov 10 04:18:07 web01 sshd[41327]: Failed password for invalid user ftpuser from 198.51.100.77 port 52017 ssh2
+Nov 10 04:18:18 web01 sshd[41328]: Invalid user pi from 198.51.100.77 port 52018
+Nov 10 04:18:18 web01 sshd[41328]: Failed password for invalid user pi from 198.51.100.77 port 52018 ssh2
+Nov 10 04:18:41 web01 sshd[41329]: Invalid user support from 198.51.100.77 port 52019
+Nov 10 04:18:41 web01 sshd[41329]: Failed password for invalid user support from 198.51.100.77 port 52019 ssh2
+Nov 10 07:13:04 web01 sshd[41510]: Failed password for bob from 192.0.2.80 port 53000 ssh2
+Nov 10 07:13:24 web01 sshd[41511]: Failed password for bob from 192.0.2.80 port 53001 ssh2
+Nov 10 07:13:44 web01 sshd[41512]: Failed password for bob from 192.0.2.80 port 53002 ssh2
+Nov 10 07:14:04 web01 sshd[41520]: Accepted password for bob from 192.0.2.80 port 53010 ssh2
+Nov 10 07:15:04 web01 CRON[41999]: pam_unix(cron:session): session opened for user root by (uid=0)
