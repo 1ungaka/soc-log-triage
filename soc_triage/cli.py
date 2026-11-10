@@ -9,7 +9,7 @@ from pathlib import Path
 from . import __version__
 from .detections import SEVERITY_ORDER, Thresholds, run_all
 from .enrich import load_allow_file, parse_allow_list
-from .parsers import parse_file
+from .parsers import FORMATS, parse_file
 from .report import to_json, to_markdown, to_text
 
 
@@ -20,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = sub.add_parser("scan", help="scan one or more log files")
     scan.add_argument("files", nargs="+", type=Path)
-    scan.add_argument("--format", choices=["auto", "auth-log", "windows-json"], default="auto",
+    scan.add_argument("--format", choices=["auto", *FORMATS], default="auto",
                       help="input format (default: guess from file)")
     scan.add_argument("--year", type=int, help="year for classic syslog timestamps (default: current year)")
     scan.add_argument("--output", choices=["text", "json", "markdown"], default="text")

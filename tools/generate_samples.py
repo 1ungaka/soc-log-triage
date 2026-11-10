@@ -139,8 +139,42 @@ def sysmon_events() -> list[dict]:
     return ev
 
 
+def audit_log() -> list[str]:
+    """web02 runs auditd: an SSH brute force that lands, then a backdoor account added to wheel."""
+    t = datetime(2026, 11, 10, 3, 40, 0, tzinfo=timezone.utc).timestamp()
+    serial = 9100
+    lines = []
+
+    def rec(offset, rtype, body):
+        nonlocal serial
+        serial += 1
+        lines.append(f"node=web02 type={rtype} msg=audit({t + offset:.3f}:{serial}): {body}")
+
+    sshd = 'exe="/usr/sbin/sshd" hostname={ip} addr={ip} terminal=ssh'
+    pam = "pid={pid} uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op={op} grantors={g} acct=\"{acct}\" " + sshd + " res={res}'"
+
+    # Normal key-based admin login from the internal bastion
+    rec(-3600, "USER_LOGIN", pam.format(pid=700, op="login", g="?", acct="ops", ip="10.0.8.4", res="success").replace("grantors=? ", ""))
+    # Brute force: each failure writes USER_AUTH and USER_LOGIN
+    for i in range(14):
+        rec(i * 6, "USER_AUTH", pam.format(pid=800 + i, op="PAM:authentication", g="?", acct="root", ip="203.0.113.60", res="failed"))
+        rec(i * 6 + 0.01, "USER_LOGIN", pam.format(pid=800 + i, op="login", g="?", acct="root", ip="203.0.113.60", res="failed").replace("grantors=? ", ""))
+    rec(90, "USER_AUTH", pam.format(pid=900, op="PAM:authentication", g="pam_unix", acct="root", ip="203.0.113.60", res="success"))
+    rec(90.2, "USER_LOGIN", pam.format(pid=900, op="login", g="?", acct="root", ip="203.0.113.60", res="success").replace("grantors=? ", ""))
+    # Persistence: hex-encoded acct (auditd does this for unusual names), then wheel membership
+    acct_hex = "systemd-sync".encode().hex().upper()
+    rec(240, "ADD_GROUP", "pid=950 uid=0 auid=0 ses=7 msg='op=add-group id=1004 exe=\"/usr/sbin/useradd\" hostname=? addr=? terminal=pts/0 res=success'")
+    rec(240.1, "ADD_USER", f"pid=950 uid=0 auid=0 ses=7 msg='op=add-user acct={acct_hex} exe=\"/usr/sbin/useradd\" hostname=? addr=? terminal=pts/0 res=success'")
+    rec(300, "USER_MGMT", "pid=960 uid=0 auid=0 ses=7 msg='op=add-user-to-group grp=\"wheel\" acct=\"systemd-sync\" exe=\"/usr/sbin/usermod\" hostname=? addr=? terminal=pts/0 res=success'")
+    # Noise that must be ignored
+    rec(310, "SYSCALL", "arch=c000003e syscall=59 success=yes exit=0 a0=55d1 items=2 ppid=950 pid=961 auid=0 uid=0 comm=\"id\" exe=\"/usr/bin/id\"")
+    rec(320, "CRED_ACQ", pam.format(pid=970, op="PAM:setcred", g="pam_unix", acct="root", ip="?", res="success"))
+    return lines
+
+
 def main() -> None:
     OUT.mkdir(exist_ok=True)
+    (OUT / "audit.log").write_text("\n".join(audit_log()) + "\n", encoding="utf-8")
     with (OUT / "sysmon.jsonl").open("w", encoding="utf-8") as fh:
         for record in sysmon_events():
             fh.write(json.dumps(record) + "\n")

@@ -204,12 +204,92 @@ def parse_windows_json(text: str) -> Iterator[Event]:
             yield event
 
 
+# --- Linux auditd -------------------------------------------------------------
+
+_AUDIT_HEADER = re.compile(
+    r"^(?:node=(?P<node>\S+)\s+)?type=(?P<type>\w+)\s+msg=audit\((?P<epoch>\d+(?:\.\d+)?):\d+\):\s*(?P<body>.*)$"
+)
+_KV = re.compile(r"(\w+)=(\"[^\"]*\"|'[^']*'|\S+)")
+_HEX = re.compile(r"^(?:[0-9A-Fa-f]{2})+$")
+
+
+def _audit_value(raw: str) -> str:
+    if raw[:1] in {'"', "'"}:
+        return raw[1:-1]
+    # auditd hex-encodes untrusted strings that contain spaces or odd characters
+    if _HEX.match(raw) and len(raw) >= 4:
+        try:
+            return bytes.fromhex(raw).decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+    return "" if raw == "?" else raw
+
+
+def _audit_fields(body: str) -> dict[str, str]:
+    # Enriched format appends translated fields after a 0x1d separator; we only need the raw ones.
+    body = body.split("\x1d", 1)[0]
+    fields: dict[str, str] = {}
+    for key, raw in _KV.findall(body):
+        if key == "msg" and raw[:1] == "'":
+            for ikey, iraw in _KV.findall(raw[1:-1]):
+                fields.setdefault(ikey, _audit_value(iraw))
+        else:
+            fields.setdefault(key, _audit_value(raw))
+    return fields
+
+
+def parse_audit_log(lines: Iterable[str], default_host: str = "") -> Iterator[Event]:
+    """Parse Linux auditd records (audit.log). Unrelated record types are skipped.
+
+    A failed SSH login writes both USER_AUTH and USER_LOGIN records; only USER_AUTH is
+    counted as the failure and only USER_LOGIN as the success, so nothing is counted twice.
+    """
+    seen_group_adds: set[tuple] = set()
+    for line in lines:
+        m = _AUDIT_HEADER.match(line.strip())
+        if not m:
+            continue
+        rtype = m["type"]
+        if rtype not in {"USER_AUTH", "USER_LOGIN", "ADD_USER", "USER_MGMT", "ADD_GROUP"}:
+            continue
+        f = _audit_fields(m["body"])
+        ts = datetime.fromtimestamp(float(m["epoch"]), tz=timezone.utc)
+        host = m["node"] or default_host
+        ip = f.get("addr") or (f.get("hostname") if re.match(r"^[0-9a-fA-F:.]+$", f.get("hostname", "")) else "")
+        user = f.get("acct") or f.get("id", "")
+        result = f.get("res", "").lower()
+        exe = f.get("exe", "")
+        extra = {"audit_type": rtype, "exe": exe, "terminal": f.get("terminal", "")}
+        line = line.rstrip("\n")
+
+        if rtype == "USER_AUTH" and result == "failed":
+            yield Event(ts, "linux-auditd", ev.AUTH_FAILURE, host, user, ip, line, extra)
+        elif rtype == "USER_LOGIN" and result == "success" and ip:
+            yield Event(ts, "linux-auditd", ev.AUTH_SUCCESS, host, user, ip, line, extra)
+        elif rtype == "ADD_USER" and result == "success":
+            yield Event(ts, "linux-auditd", ev.ACCOUNT_CREATED, host, user, "", line,
+                        {**extra, "created_by_auid": f.get("auid", "")})
+        elif rtype == "USER_MGMT" and result == "success" and f.get("op") in {"add-user-to-group", "add-to-group"}:
+            group = f.get("grp", "")
+            key = (host, user, group, int(ts.timestamp()))
+            if key in seen_group_adds:
+                continue
+            seen_group_adds.add(key)
+            yield Event(ts, "linux-auditd", ev.GROUP_MEMBER_ADDED, host, user, "", line,
+                        {**extra, "group": group})
+
+
 # --- File dispatch ----------------------------------------------------------
 
+FORMATS = ("auth-log", "auditd", "windows-json")
+
+
 def detect_format(path: Path, sample: str) -> str:
-    first = sample.lstrip()[:1]
-    if path.suffix.lower() in {".json", ".jsonl", ".ndjson"} or first in {"{", "["}:
+    stripped = sample.lstrip()
+    if path.suffix.lower() in {".json", ".jsonl", ".ndjson"} or stripped[:1] in {"{", "["}:
         return "windows-json"
+    if stripped.startswith(("type=", "node=")):
+        return "auditd"
     return "auth-log"
 
 
@@ -222,6 +302,8 @@ def parse_file(path: str | Path, fmt: str = "auto", year: int | None = None) -> 
         events = list(parse_windows_json(text))
     elif fmt == "auth-log":
         events = list(parse_auth_log(text.splitlines(), year=year))
+    elif fmt == "auditd":
+        events = list(parse_audit_log(text.splitlines()))
     else:
         raise ValueError(f"unknown format: {fmt}")
     return sorted(events, key=lambda e: e.timestamp)
